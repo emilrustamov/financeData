@@ -72,9 +72,9 @@
         <div class="modal-dialog">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title">
+                    <span class="modal-title">
                         {{ $recordId ? 'Редактировать запись' : 'Добавить запись' }}
-                    </h5>
+                    </span>
 
                     <button type="button" class="btn-close" wire:click="closeModal" aria-label="Закрыть"></button>
 
@@ -83,9 +83,9 @@
                     <form wire:submit.prevent="submit">
                         <!-- Поля формы -->
                         <div x-data="{ suggestions: @entangle('suggestions'), query: @entangle('object') }" class="mb-3">
-                            <label for="object" class="form-label">Объект</label>
+                          
                             <input id="object" type="text" class="form-control" x-model="query"
-                                placeholder="Введите объект">
+                                placeholder="Введите объект/клиента">
 
                             <!-- Список совпадений -->
                             <ul class="list-group mt-2" x-show="suggestions.length > 0">
@@ -97,7 +97,7 @@
 
 
                         <div class="mb-3">
-                            <label for="articleType" class="form-label">Тип статьи</label>
+                           
                             <select wire:model="articleType" id="articleType" class="form-select">
                                 <option value="">Выберите тип статьи</option>
                                 <option value="Приход">Приход</option>
@@ -109,7 +109,7 @@
                         </div>
 
                         <div class="mb-3">
-                            <label for="articleDescription" class="form-label">Описание статьи</label>
+                           
                             <textarea wire:model="articleDescription" id="articleDescription" class="form-control"
                                 placeholder="Введите описание статьи"></textarea>
                             @error('articleDescription')
@@ -118,7 +118,7 @@
                         </div>
 
                         <div class="mb-3">
-                            <label for="amount" class="form-label">Сумма</label>
+                         
                             <input wire:model="amount" id="amount" type="number" class="form-control"
                                 placeholder="Введите сумму">
                             @error('amount')
@@ -129,7 +129,7 @@
 
 
                         <div class="mb-3">
-                            <label for="date" class="form-label">Дата</label>
+                         
                             <input wire:model="date" id="date" type="date" class="form-control">
                             @error('date')
                                 <span class="text-danger">{{ $message }}</span>
@@ -137,7 +137,7 @@
                         </div>
 
                         <div class="mb-3">
-                            <label for="currency" class="form-label">Валюта</label>
+                        
                             <select wire:model.live="currency" id="currency" class="form-select">
                                 <option value="">Выберите валюту</option>
                                 <option value="Манат">Манат</option>
@@ -151,7 +151,7 @@
                         </div>
 
                         <div class="mb-3">
-                            <label for="exchangeRate" class="form-label">Курс обмена</label>
+                         
                             <input type="text" wire:model.live="exchangeRate" id="exchangeRate"
                                 class="form-control" placeholder="Курс будет подставлен автоматически">
                             @error('exchangeRate')
@@ -161,7 +161,7 @@
 
 
                         <div class="mb-3">
-                            <label for="link" class="form-label">Ссылка</label>
+                     
                             <textarea wire:model="link" id="link" class="form-control" placeholder="Введите ссылку"></textarea>
                             @error('link')
                                 <span class="text-danger">{{ $message }}</span>
@@ -169,7 +169,7 @@
                         </div>
 
                         <div class="d-flex justify-content-end">
-                            <button type="submit" class="btn btn-primary">Сохранить</button>
+                            <button type="submit" class="btn btn-primary"><i class="bi bi-plus-circle"></i></button>
 
                         </div>
                     </form>

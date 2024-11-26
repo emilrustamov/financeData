@@ -22,4 +22,4 @@ Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
 
 
 
-Route::middleware('auth.basic')->get('/records', [RecordApiController::class, 'index']);
+Route::get('/records.json', [RecordApiController::class, 'index']);
