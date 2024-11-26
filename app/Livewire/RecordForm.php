@@ -7,16 +7,34 @@ use Livewire\Component;
 use Illuminate\Support\Facades\Auth;
 use App\Models\ExchangeRate;
 use Livewire\WithPagination;
+use App\Models\Template;
+use Illuminate\Support\Facades\File;
 
 
 
 class RecordForm extends Component
 {
     use WithPagination;
-    public $type, $articleType, $articleDescription, $amount, $currency, $date, $exchangeRate, $link;
+    public $articleType, $articleDescription, $amount, $currency, $date, $exchangeRate, $link;
+    public $isTemplate = false;
+    public $titleTemplate, $icon;
+    public $templates = [];
     public $recordId = null;
     public $isModalOpen = false;
     public $object;
+    public $availableIcons = [
+        'bi-fuel-pump',
+        'bi-tools',
+        'bi-droplet-half',
+        'bi-droplet',
+        'bi-cup-straw',
+        'bi-cart',
+        'bi-pencil',
+        'bi-bucket',
+        'bi-cash-coin',
+    ]; // сделать пустым, если используется метод getAvailableIcons
+
+
     public $defaultExchangeRates = [];
     public $suggestions = [];
     protected $rules = [
@@ -28,15 +46,18 @@ class RecordForm extends Component
         'date' => 'required|date',
         'exchangeRate' => 'nullable|numeric|min:0',
         'link' => 'nullable|string',
+        'titleTemplate' => 'required_if:isTemplate,true|string|max:100',
+        'icon' => 'required_if:isTemplate,true|string|max:255',
     ];
+
 
     public function openModal($id = null)
     {
-        $this->resetExcept(['defaultExchangeRates']);
+        $this->resetExcept(['defaultExchangeRates', 'templates', 'availableIcons']);
+        $this->isTemplate = false;
         $this->recordId = $id;
 
         if ($id) {
-            // Редактирование записи
             if (!Auth::user()->is_admin) {
                 abort(403, 'У вас нет доступа к редактированию записей.');
             }
@@ -52,7 +73,6 @@ class RecordForm extends Component
             $this->link = $record->Link;
             $this->object = $record->Object;
         } else {
-            // Новая запись: если выбрана валюта, подставляем курс
             if ($this->currency && isset($this->defaultExchangeRates[$this->currency])) {
                 $this->exchangeRate = $this->defaultExchangeRates[$this->currency];
             }
@@ -62,11 +82,11 @@ class RecordForm extends Component
     }
     public function updatedCurrency($value)
     {
-        // Проверяем, есть ли курс для выбранной валюты
+
         if (isset($this->defaultExchangeRates[$value])) {
             $this->exchangeRate = $this->defaultExchangeRates[$value];
         } else {
-            $this->exchangeRate = null; // Если валюты нет в массиве, очищаем поле
+            $this->exchangeRate = null;
         }
     }
 
@@ -75,7 +95,8 @@ class RecordForm extends Component
     {
         $this->isModalOpen = false;
     }
-    
+
+
     public function updatedObject($value)
     {
 
@@ -86,40 +107,69 @@ class RecordForm extends Component
             ->toArray();
     }
 
+
     public function submit()
     {
-        if ($this->recordId && !Auth::user()->is_admin) {
-            abort(403, 'У вас нет доступа к редактированию записей.');
+
+        $rules = [
+            'articleType' => 'required|in:Приход,Расход',
+            'articleDescription' => 'nullable|string|max:255',
+            'amount' => 'required|numeric|min:0',
+            'currency' => 'required|in:Манат,Доллар,Рубль,Юань',
+            'date' => 'required|date',
+            'exchangeRate' => 'nullable|numeric|min:0',
+            'link' => 'nullable|string',
+        ];
+
+
+        if ($this->isTemplate) {
+            $rules['titleTemplate'] = 'required|string|max:100';
+            $rules['icon'] = 'required|string|max:255';
         }
-        $this->validate();
 
 
-        Record::updateOrCreate(
-            ['id' => $this->recordId],
-            [
+        $this->validate($rules);
 
-                'ArticleType' => $this->articleType,
-                'ArticleDescription' => $this->articleDescription,
-                'Amount' => $this->amount,
-                'Currency' => $this->currency,
-                'Date' => $this->date,
-                'ExchangeRate' => $this->exchangeRate ?: null,
-                'Link' => $this->link,
-                'Object' => $this->object,
-            ]
-        );
 
-        $this->reset();
+        $model = $this->isTemplate ? Template::class : Record::class;
+
+        $data = [
+            'ArticleType' => $this->articleType,
+            'ArticleDescription' => $this->articleDescription,
+            'Amount' => $this->amount,
+            'Currency' => $this->currency,
+            'Date' => $this->date,
+            'ExchangeRate' => $this->exchangeRate ?: null,
+            'Link' => $this->link,
+            'Object' => $this->object,
+        ];
+
+        if ($this->isTemplate) {
+            $data['title_template'] = $this->titleTemplate;
+            $data['icon'] = $this->icon;
+
+            // Создаем новую запись без обновления
+            Template::create($data);
+        } else {
+            // Создаем или обновляем запись для Record
+            Record::updateOrCreate(
+                ['id' => $this->recordId],
+                $data
+            );
+        }
+
+        $this->resetExcept(['defaultExchangeRates', 'templates', 'availableIcons']);
         session()->flash('message', $this->recordId ? 'Запись успешно обновлена.' : 'Запись успешно добавлена.');
         $this->closeModal();
     }
+
+
+
     public function copyRecord($id)
     {
-        $this->resetExcept(['defaultExchangeRates']); // Сброс, кроме курсов обмена
+        $this->resetExcept(['defaultExchangeRates', 'templates', 'availableIcons']);
 
-        $record = Record::findOrFail($id); // Получаем выбранную запись
-
-        // Заполняем форму данными из выбранной записи
+        $record = Record::findOrFail($id);
         $this->articleType = $record->ArticleType;
         $this->articleDescription = $record->ArticleDescription;
         $this->amount = $record->Amount;
@@ -128,10 +178,8 @@ class RecordForm extends Component
         $this->exchangeRate = $record->ExchangeRate;
         $this->link = $record->Link;
         $this->object = $record->Object;
-
-        $this->recordId = null; // Убираем ID, чтобы сохранить новую запись
-
-        $this->isModalOpen = true; // Открываем модальное окно
+        $this->recordId = null;
+        $this->isModalOpen = true;
     }
 
 
@@ -145,10 +193,51 @@ class RecordForm extends Component
     }
 
 
+    public function applyTemplate($id)
+    {
+        $template = Template::findOrFail($id);
+
+        $this->resetExcept(['defaultExchangeRates', 'templates', 'availableIcons']);
+        $this->isTemplate = false;
+        $this->articleType = $template->ArticleType;
+        $this->articleDescription = $template->ArticleDescription;
+        $this->amount = $template->Amount;
+        $this->currency = $template->Currency;
+        $this->date = $template->Date;
+        $this->exchangeRate = $template->ExchangeRate;
+        $this->link = $template->Link;
+        $this->object = $template->Object;
+        $this->isModalOpen = true;
+    }
+
+    //раскоментируйте если нужны все иконки из bootstrap-icons
+    // public function getAvailableIcons() 
+    // {
+    //     $icons = [];
+    //     $iconFilePath = base_path('node_modules/bootstrap-icons/font/bootstrap-icons.css');
+
+    //     if (File::exists($iconFilePath)) {
+    //         $content = File::get($iconFilePath);
+    //         preg_match_all('/\.bi-[a-z0-9\-]+/i', $content, $matches);
+
+    //         if (!empty($matches[0])) {
+    //             $icons = array_map(fn($icon) => ltrim($icon, '.'), $matches[0]);
+    //         }
+    //     }
+
+    //     return $icons;
+    // }
+
+
+
     public function mount()
     {
+
+        $this->templates = Template::all();
         $this->defaultExchangeRates = ExchangeRate::pluck('rate', 'currency')->toArray();
+        $this->availableIcons;
     }
+
 
     public function render()
     {
