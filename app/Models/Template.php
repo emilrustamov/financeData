@@ -1,17 +1,22 @@
 <?php
 
-// app/Models/Record.php
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
-class Record extends Model
+class Template extends Model
 {
     use HasFactory;
 
-    protected $table = 'records'; 
+    /**
+     * Атрибуты, которые можно заполнять массово.
+     *
+     * @var array
+     */
     protected $fillable = [
+        'title_template',
+        'icon',
         'ArticleType',
         'ArticleDescription',
         'Amount',

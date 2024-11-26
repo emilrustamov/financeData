@@ -3,6 +3,17 @@
         <div class="col">
             <button class="btn btn-primary " wire:click="openModal()"> <i class="bi bi-plus-circle"></i> </button>
         </div>
+        @foreach ($templates as $template)
+        <div class="col">
+                <button class="btn btn-outline-secondary" wire:click="applyTemplate({{ $template->id }})">
+                    <i class="{{ $template->icon }}"></i>
+                </button>
+                <span class="small mt-1">{{ $template->title_template }}</span>
+            </div>
+        @endforeach
+    </div>
+    <div>
+        {{ $isTemplate}} 123
     </div>
 
     <table class="table table-bordered">
@@ -72,18 +83,17 @@
         <div class="modal-dialog">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title">
+                    <span class="modal-title">
                         {{ $recordId ? 'Редактировать запись' : 'Добавить запись' }}
-                    </h5>
+                    </span>
 
                     <button type="button" class="btn-close" wire:click="closeModal" aria-label="Закрыть"></button>
 
                 </div>
                 <div class="modal-body">
                     <form wire:submit.prevent="submit">
-                        <!-- Поля формы -->
+                   
                         <div x-data="{ suggestions: @entangle('suggestions'), query: @entangle('object') }" class="mb-3">
-                            <label for="object" class="form-label">Объект</label>
                             <input id="object" type="text" class="form-control" x-model="query"
                                 placeholder="Введите объект">
 
@@ -97,7 +107,6 @@
 
 
                         <div class="mb-3">
-                            <label for="articleType" class="form-label">Тип статьи</label>
                             <select wire:model="articleType" id="articleType" class="form-select">
                                 <option value="">Выберите тип статьи</option>
                                 <option value="Приход">Приход</option>
@@ -109,7 +118,6 @@
                         </div>
 
                         <div class="mb-3">
-                            <label for="articleDescription" class="form-label">Описание статьи</label>
                             <textarea wire:model="articleDescription" id="articleDescription" class="form-control"
                                 placeholder="Введите описание статьи"></textarea>
                             @error('articleDescription')
@@ -118,7 +126,6 @@
                         </div>
 
                         <div class="mb-3">
-                            <label for="amount" class="form-label">Сумма</label>
                             <input wire:model="amount" id="amount" type="number" class="form-control"
                                 placeholder="Введите сумму">
                             @error('amount')
@@ -129,7 +136,6 @@
 
 
                         <div class="mb-3">
-                            <label for="date" class="form-label">Дата</label>
                             <input wire:model="date" id="date" type="date" class="form-control">
                             @error('date')
                                 <span class="text-danger">{{ $message }}</span>
@@ -137,7 +143,6 @@
                         </div>
 
                         <div class="mb-3">
-                            <label for="currency" class="form-label">Валюта</label>
                             <select wire:model.live="currency" id="currency" class="form-select">
                                 <option value="">Выберите валюту</option>
                                 <option value="Манат">Манат</option>
@@ -151,22 +156,62 @@
                         </div>
 
                         <div class="mb-3">
-                            <label for="exchangeRate" class="form-label">Курс обмена</label>
-                            <input type="text" wire:model.live="exchangeRate" id="exchangeRate"
-                                class="form-control" placeholder="Курс будет подставлен автоматически">
+                            <input type="text" wire:model.live="exchangeRate" id="exchangeRate" class="form-control"
+                                placeholder="Курс будет подставлен автоматически">
                             @error('exchangeRate')
                                 <span class="text-danger">{{ $message }}</span>
                             @enderror
                         </div>
 
-
                         <div class="mb-3">
-                            <label for="link" class="form-label">Ссылка</label>
-                            <textarea wire:model="link" id="link" class="form-control" placeholder="Введите ссылку"></textarea>
+                            <input type="text" wire:model="link" id="link" class="form-control"
+                                placeholder="Ссылка на курс">
                             @error('link')
                                 <span class="text-danger">{{ $message }}</span>
                             @enderror
                         </div>
+
+                        <div class="mb-3 form-check">
+                            <input type="checkbox" class="form-check-input" id="isTemplate"
+                                wire:model.live="isTemplate">
+                            <label class="form-check-label" for="isTemplate">Сохранить как шаблон</label>
+                        </div>
+
+                        @if ($isTemplate)
+                            <div class="mb-3">
+                                <input type="text" id="titleTemplate" class="form-control"
+                                    wire:model.live="titleTemplate" placeholder="Введите название шаблона">
+                                @error('titleTemplate')
+                                    <span class="text-danger">{{ $message }}</span>
+                                @enderror
+                            </div>
+
+
+                            <div>
+
+                                <div class="dropdown">
+                                    <button class="btn btn-outline-secondary dropdown-toggle" type="button"
+                                        id="iconDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                                        @if ($icon)
+                                            <i class="{{ $icon }} fs-5"></i> {{ $icon }}
+                                        @else
+                                            Выберите иконку
+                                        @endif
+                                    </button>
+                                    <ul class="dropdown-menu" aria-labelledby="iconDropdown">
+                                        @foreach ($availableIcons as $availableIcon)
+                                            <li>
+                                                <a class="dropdown-item d-flex align-items-center" href="#"
+                                                    wire:click.prevent="$set('icon', '{{ $availableIcon }}')">
+                                                    <i class="{{ $availableIcon }} me-2 fs-5"></i>
+                                                    {{ $availableIcon }}
+                                                </a>
+                                            </li>
+                                        @endforeach
+                                    </ul>
+                                </div>
+                            </div>
+                        @endif
 
                         <div class="d-flex justify-content-end">
                             <button type="submit" class="btn btn-primary">Сохранить</button>
