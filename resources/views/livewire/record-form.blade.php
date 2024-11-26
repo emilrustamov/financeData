@@ -4,7 +4,7 @@
             <button class="btn btn-primary " wire:click="openModal()"> <i class="bi bi-plus-circle"></i> </button>
         </div>
         @foreach ($templates as $template)
-        <div class="col">
+            <div class="col">
                 <button class="btn btn-outline-secondary" wire:click="applyTemplate({{ $template->id }})">
                     <i class="{{ $template->icon }}"></i>
                 </button>
@@ -12,10 +12,7 @@
             </div>
         @endforeach
     </div>
-    <div>
-        {{ $isTemplate}} 123
-    </div>
-
+  
     <table class="table table-bordered">
         <thead class="table-light">
             <tr>
@@ -61,11 +58,11 @@
 
             <td>
                 @if (Auth::check() && Auth::user()->is_admin)
-                    <i class="bi bi-pencil-square text-warning" role="button"
-                        wire:click="openModal({{ $record->id }})"></i>
                     <i class="bi bi-trash text-danger ms-3" role="button"
                         wire:click="deleteRecord({{ $record->id }})"></i>
                 @endif
+                <i class="bi bi-pencil-square text-warning" role="button"
+                    wire:click="openModal({{ $record->id }})"></i>
                 <i class="bi bi-files ms-3 text-primary" role="button" wire:click="copyRecord({{ $record->id }})"
                     title="Копировать"></i>
             </td>
@@ -92,7 +89,7 @@
                 </div>
                 <div class="modal-body">
                     <form wire:submit.prevent="submit">
-                   
+
                         <div x-data="{ suggestions: @entangle('suggestions'), query: @entangle('object') }" class="mb-3">
                             <input id="object" type="text" class="form-control" x-model="query"
                                 placeholder="Введите объект/клиента">
