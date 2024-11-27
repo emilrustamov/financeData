@@ -1,9 +1,9 @@
 <div class="">
-    <div class="row g-3">
+    <div class="row g-3 align-items-center">
         @foreach ($currencies as $currency)
         <div class="col-3">
-            <div class="form-group">
-                <label for="rate-{{ $currency['id'] }}" class="form-label">{{ $currency['currency'] }}</label>
+            <div class="d-flex align-items-center">
+                <label for="rate-{{ $currency['id'] }}" class="form-label me-2 mb-0">{{ $currency['currency'] }}</label>
                 <input 
                     type="number" 
                     step="0.01" 

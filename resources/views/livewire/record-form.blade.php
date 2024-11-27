@@ -1,20 +1,20 @@
 <div class="mt-3">
     <div class="floating-button">
-        <button class="btn btn-primary rounded-circle shadow" wire:click="openModal()"> 
-            <i class="bi bi-plus-circle fs-4"></i> 
+        <button class="btn btn-primary rounded-circle shadow" wire:click="openModal()">
+            <i class="bi bi-plus-circle fs-4"></i>
         </button>
     </div>
-    
+
     <style>
         .floating-button {
             position: fixed;
-            bottom: 20px; 
-            right: 20px; 
-            z-index: 1000; 
+            bottom: 20px;
+            right: 20px;
+            z-index: 1000;
         }
     </style>
-    
-    <div class="row row-cols-4 g-3">
+
+    <div class="row row-cols-6 g-3">
         @foreach ($templates as $template)
             <div class="col">
                 <div class="card text-center shadow-sm">
@@ -22,25 +22,28 @@
                     <div class="card-header bg-light">
                         <i class="{{ $template->icon }} fs-3"></i>
                     </div>
-                    
+
                     <!-- Название шаблона -->
                     <div class="card-body p-2">
                         <span class="small text-truncate d-block">{{ $template->title_template }}</span>
                     </div>
-                    
+
                     <!-- Кнопки управления -->
                     <div class="card-footer p-1">
                         <div class="d-flex justify-content-center gap-1">
                             <!-- Кнопка редактирования -->
-                            <button class="btn btn-sm btn-outline-primary" wire:click="openModal({{ $template->id }}, true)" title="Редактировать">
+                            <button class="btn btn-sm btn-outline-primary"
+                                wire:click="openModal({{ $template->id }}, true)" title="Редактировать">
                                 <i class="bi bi-pencil"></i>
                             </button>
                             <!-- Кнопка удаления -->
-                            <button class="btn btn-sm btn-outline-danger" wire:click="deleteTemplate({{ $template->id }})" title="Удалить">
+                            <button class="btn btn-sm btn-outline-danger"
+                                wire:click="deleteTemplate({{ $template->id }})" title="Удалить">
                                 <i class="bi bi-trash"></i>
                             </button>
                             <!-- Кнопка применения -->
-                            <button class="btn btn-sm btn-outline-secondary" wire:click="applyTemplate({{ $template->id }})" title="Применить">
+                            <button class="btn btn-sm btn-outline-secondary"
+                                wire:click="applyTemplate({{ $template->id }})" title="Применить">
                                 <i class="bi bi-plus-circle"></i>
                             </button>
                         </div>
@@ -49,18 +52,21 @@
             </div>
         @endforeach
     </div>
-    
-
 
 
     <div class="card mt-3">
         <div class="card-header">
-            <h5>Выбранная дата: {{ $dateFilter ?: 'Сегодня' }}</h5>
-            <div class="form-group">
-                <input type="date" id="dateFilter" class="form-control" wire:model.lazy="dateFilter">
+            <div class="d-flex align-items-center justify-content-between">
+                <h5 class="me-3 mb-0">Выбранная дата: {{ $dateFilter ?: 'Баланс за сегодня с записями за все время' }}</h5>
+                <div class="form-group mb-0">
+                    <input type="date" id="dateFilter" class="form-control" wire:model.lazy="dateFilter">
+                </div>
+                <button class="btn btn-sm btn-outline-secondary ms-3" id="toggle-card">
+                    <span id="toggle-text">Скрыть</span>
+                </button>
             </div>
         </div>
-        <div class="card-body">
+        <div class="card-body" id="card-body">
             <div class="row">
                 <div class="col-4">
                     <div class="stat-box">
@@ -77,38 +83,44 @@
                 <div class="col-4">
                     <div class="stat-box">
                         <h6>Баланс</h6>
-                        <p class="text-primary fs-4">{{ $dailySummary['balance'] }} Манат
-                        </p>
+                        <p class="text-primary fs-4">{{ $dailySummary['balance'] }} Манат</p>
                     </div>
                 </div>
                 <button class="btn btn-success" wire:click="closeCashRegister"
                     @if (\App\Models\CashRegister::whereDate('Date', $dateFilter ?: now()->format('Y-m-d'))->exists()) disabled @endif>
                     {{ \App\Models\CashRegister::whereDate('Date', $dateFilter ?: now()->format('Y-m-d'))->exists() ? 'Касса закрыта' : 'Закрыть кассу' }}
                 </button>
-
             </div>
         </div>
     </div>
-
-
-
-
-    {{-- <div class="input-group mb-3">
-        <input type="date" class="form-control" wire:model.live="dateFilter">
-        <button type="button" class="btn btn-outline-secondary" wire:click="resetDateFilter">Сбросить дату</button>
-    </div> --}}
-
-
-    {{-- <div class="card">
-        <div class="card-header">Баланс на день</div>
-        <div class="card-body">
-            <p>Начальный баланс: {{ $dailyBalance['initial_balance'] }}</p>
-            <p>Приход: {{ $dailyBalance['income'] }}</p>
-            <p>Расход: {{ $dailyBalance['expense'] }}</p>
-            <p>Итоговый баланс: {{ $dailyBalance['total_balance'] }}</p>
-        </div>
-    </div> --}}
-
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const cardBody = document.getElementById('card-body');
+            const toggleButton = document.getElementById('toggle-card');
+            const toggleText = document.getElementById('toggle-text');
+    
+            // Проверяем состояние в localStorage
+            const isHidden = localStorage.getItem('isCardHidden');
+            if (isHidden === 'true') {
+                cardBody.style.display = 'none';
+                toggleText.textContent = 'Раскрыть';
+            }
+    
+            // Обработчик клика
+            toggleButton.addEventListener('click', () => {
+                if (cardBody.style.display === 'none') {
+                    cardBody.style.display = 'block';
+                    toggleText.textContent = 'Скрыть';
+                    localStorage.setItem('isCardHidden', 'false');
+                } else {
+                    cardBody.style.display = 'none';
+                    toggleText.textContent = 'Раскрыть';
+                    localStorage.setItem('isCardHidden', 'true');
+                }
+            });
+        });
+    </script>
+        
 
 
     @if (session()->has('error'))
