@@ -1,42 +1,64 @@
 <div class="mt-3">
-    <div class="row mb-3">
-        <div class="col">
-            <button class="btn btn-primary " wire:click="openModal()"> <i class="bi bi-plus-circle"></i> </button>
-        </div>
+    <div class="floating-button">
+        <button class="btn btn-primary rounded-circle shadow" wire:click="openModal()"> 
+            <i class="bi bi-plus-circle fs-4"></i> 
+        </button>
+    </div>
+    
+    <style>
+        .floating-button {
+            position: fixed;
+            bottom: 20px; 
+            right: 20px; 
+            z-index: 1000; 
+        }
+    </style>
+    
+    <div class="row row-cols-4 g-3">
         @foreach ($templates as $template)
-            <div class="col text-center">
-                <!-- Иконки редактирования и удаления -->
-                <div class="d-flex justify-content-center mb-1">
-                    <!-- Кнопка редактирования -->
-                    <button class="btn btn-sm btn-outline-primary me-1" wire:click="openModal({{ $template->id }}, true)"
-                        title="Редактировать">
-                        <i class="bi bi-pencil"></i>
-                    </button>
-
-                    <!-- Кнопка удаления -->
-                    <button class="btn btn-sm btn-outline-danger" wire:click="deleteTemplate({{ $template->id }})"
-                        title="Удалить">
-                        <i class="bi bi-trash"></i>
-                    </button>
+            <div class="col">
+                <div class="card text-center shadow-sm">
+                    <!-- Иконка шаблона -->
+                    <div class="card-header bg-light">
+                        <i class="{{ $template->icon }} fs-3"></i>
+                    </div>
+                    
+                    <!-- Название шаблона -->
+                    <div class="card-body p-2">
+                        <span class="small text-truncate d-block">{{ $template->title_template }}</span>
+                    </div>
+                    
+                    <!-- Кнопки управления -->
+                    <div class="card-footer p-1">
+                        <div class="d-flex justify-content-center gap-1">
+                            <!-- Кнопка редактирования -->
+                            <button class="btn btn-sm btn-outline-primary" wire:click="openModal({{ $template->id }}, true)" title="Редактировать">
+                                <i class="bi bi-pencil"></i>
+                            </button>
+                            <!-- Кнопка удаления -->
+                            <button class="btn btn-sm btn-outline-danger" wire:click="deleteTemplate({{ $template->id }})" title="Удалить">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                            <!-- Кнопка применения -->
+                            <button class="btn btn-sm btn-outline-secondary" wire:click="applyTemplate({{ $template->id }})" title="Применить">
+                                <i class="bi bi-plus-circle"></i>
+                            </button>
+                        </div>
+                    </div>
                 </div>
-
-                <!-- Кнопка применения шаблона -->
-                <button class="btn btn-outline-secondary" wire:click="applyTemplate({{ $template->id }})">
-                    <i class="{{ $template->icon }}"></i>
-                </button>
-                <span class="small mt-1 d-block">{{ $template->title_template }}</span>
             </div>
         @endforeach
     </div>
+    
 
-    <div class="form-group">
-        <label for="dateFilter">Выберите дату</label>
-        <input type="date" id="dateFilter" class="form-control" wire:model.lazy="dateFilter">
-    </div>
+
 
     <div class="card mt-3">
         <div class="card-header">
             <h5>Выбранная дата: {{ $dateFilter ?: 'Сегодня' }}</h5>
+            <div class="form-group">
+                <input type="date" id="dateFilter" class="form-control" wire:model.lazy="dateFilter">
+            </div>
         </div>
         <div class="card-body">
             <div class="row">
