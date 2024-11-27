@@ -11,7 +11,7 @@ class InitialBalanceSeeder extends Seeder
     {
         // Установите начальный баланс только для текущей даты
         CashRegister::updateOrCreate(
-            ['Date' => now()->format('Y-m-d')], // Текущая дата
+            ['Date' => '2000-01-01'],
             ['balance' => 1000.00] // Укажите ваш начальный баланс
         );
     }
