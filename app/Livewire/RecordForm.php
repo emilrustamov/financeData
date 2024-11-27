@@ -9,6 +9,8 @@ use App\Models\ExchangeRate;
 use Livewire\WithPagination;
 use App\Models\Template;
 use Illuminate\Support\Facades\File;
+use App\Models\CashRegister;
+use Carbon\Carbon;
 
 
 
@@ -17,10 +19,14 @@ class RecordForm extends Component
     use WithPagination;
     public $articleType, $articleDescription, $amount, $currency, $date, $exchangeRate, $link;
     public $isTemplate = false;
+    public $dateFilter;
     public $titleTemplate, $icon;
+    public $totalDebit = 0;
+    public $totalCredit = 0;
     public $templates = [];
     public $recordId = null;
     public $isModalOpen = false;
+
     public $object;
     public $availableIcons = [
         'bi-fuel-pump',
@@ -32,7 +38,10 @@ class RecordForm extends Component
         'bi-pencil',
         'bi-bucket',
         'bi-cash-coin',
+        'bi-person-badge',
+        'bi-person-workspace',
     ]; // сделать пустым, если используется метод getAvailableIcons
+    protected $initialBalance = 1000; // Укажите ваш начальный баланс
 
 
     public $defaultExchangeRates = [];
@@ -51,35 +60,46 @@ class RecordForm extends Component
     ];
 
 
-    public function openModal($id = null)
+    public function openModal($id = null, $isTemplate = false)
     {
-        $this->resetExcept(['defaultExchangeRates', 'templates', 'availableIcons']);
-        $this->isTemplate = false;
+        $this->resetExcept(['defaultExchangeRates', 'templates', 'availableIcons', 'dateFilter']);
         $this->recordId = $id;
+        $this->isTemplate = $isTemplate; // Устанавливаем, что редактируем шаблон
 
         if ($id) {
-            if (!Auth::user()->is_admin) {
-                abort(403, 'У вас нет доступа к редактированию записей.');
-            }
+            if ($isTemplate) {
+                // Если это шаблон
+                $template = Template::findOrFail($id);
 
-            $record = Record::findOrFail($id);
+                $this->titleTemplate = $template->title_template;
+                $this->icon = $template->icon;
+                $this->articleType = $template->ArticleType;
+                $this->articleDescription = $template->ArticleDescription;
+                $this->amount = $template->Amount;
+                $this->currency = $template->Currency;
+                $this->date = $template->Date;
+                $this->exchangeRate = $template->ExchangeRate;
+                $this->link = $template->Link;
+                $this->object = $template->Object;
+            } else {
+                // Если это обычная запись
+                $record = Record::findOrFail($id);
 
-            $this->articleType = $record->ArticleType;
-            $this->articleDescription = $record->ArticleDescription;
-            $this->amount = $record->Amount;
-            $this->currency = $record->Currency;
-            $this->date = $record->Date;
-            $this->exchangeRate = $record->ExchangeRate;
-            $this->link = $record->Link;
-            $this->object = $record->Object;
-        } else {
-            if ($this->currency && isset($this->defaultExchangeRates[$this->currency])) {
-                $this->exchangeRate = $this->defaultExchangeRates[$this->currency];
+                $this->articleType = $record->ArticleType;
+                $this->articleDescription = $record->ArticleDescription;
+                $this->amount = $record->Amount;
+                $this->currency = $record->Currency;
+                $this->date = $record->Date;
+                $this->exchangeRate = $record->ExchangeRate;
+                $this->link = $record->Link;
+                $this->object = $record->Object;
             }
         }
 
         $this->isModalOpen = true;
     }
+
+
     public function updatedCurrency($value)
     {
 
@@ -110,7 +130,6 @@ class RecordForm extends Component
 
     public function submit()
     {
-
         $rules = [
             'articleType' => 'required|in:Приход,Расход',
             'articleDescription' => 'nullable|string|max:255',
@@ -121,15 +140,12 @@ class RecordForm extends Component
             'link' => 'nullable|string',
         ];
 
-
         if ($this->isTemplate) {
             $rules['titleTemplate'] = 'required|string|max:100';
             $rules['icon'] = 'required|string|max:255';
         }
 
-
         $this->validate($rules);
-
 
         $model = $this->isTemplate ? Template::class : Record::class;
 
@@ -148,26 +164,54 @@ class RecordForm extends Component
             $data['title_template'] = $this->titleTemplate;
             $data['icon'] = $this->icon;
 
-            // Создаем новую запись без обновления
-            Template::create($data);
-        } else {
-            // Создаем или обновляем запись для Record
-            Record::updateOrCreate(
+            // Обновляем или создаем запись в шаблонах
+            Template::updateOrCreate(
                 ['id' => $this->recordId],
                 $data
             );
+        } else {
+            // Обновляем или создаем запись в таблице Record
+            $record = Record::updateOrCreate(
+                ['id' => $this->recordId],
+                $data
+            );
+
+            // Проверяем наличие начального баланса для текущей даты
+            // $existingBalance = CashRegister::whereDate('Date', $this->date)
+            //     ->exists();
+
+            // // Если записи начального баланса нет, создаем её
+            // if (!$existingBalance) {
+            //     CashRegister::create([
+            //         'initial_balance' => $this->initialBalance,
+            //         'Date' => $this->date,
+            //         'ArticleType' => $record->ArticleType,
+            //         'Amount' => $record->Amount,
+            //         'Currency' => $record->Currency,
+            //     ]);
+            // }
+
+            // // Записываем приход или расход в таблице CashRegister
+            // CashRegister::create([
+            //     'ArticleType' => $record->ArticleType,
+            //     'Amount' => $record->Amount,
+            //     'Currency' => $record->Currency,
+            //     'Date' => $record->Date,
+            // ]);
         }
 
-        $this->resetExcept(['defaultExchangeRates', 'templates', 'availableIcons']);
+        $this->resetExcept(['defaultExchangeRates', 'templates', 'availableIcons', 'dateFilter']);
         session()->flash('message', $this->recordId ? 'Запись успешно обновлена.' : 'Запись успешно добавлена.');
         $this->closeModal();
     }
 
 
 
+
+
     public function copyRecord($id)
     {
-        $this->resetExcept(['defaultExchangeRates', 'templates', 'availableIcons']);
+        $this->resetExcept(['defaultExchangeRates', 'templates', 'availableIcons', 'dateFilter']);
 
         $record = Record::findOrFail($id);
         $this->articleType = $record->ArticleType;
@@ -193,11 +237,13 @@ class RecordForm extends Component
     }
 
 
+
+
     public function applyTemplate($id)
     {
         $template = Template::findOrFail($id);
 
-        $this->resetExcept(['defaultExchangeRates', 'templates', 'availableIcons']);
+        $this->resetExcept(['defaultExchangeRates', 'templates', 'availableIcons', 'dateFilter']);
         $this->isTemplate = false;
         $this->articleType = $template->ArticleType;
         $this->articleDescription = $template->ArticleDescription;
@@ -230,27 +276,91 @@ class RecordForm extends Component
 
 
 
+    // public function getDailyBalance()
+    // {
+    //     $query = CashRegister::query();
+
+    //     if ($this->dateFilter) {
+    //         $query->whereDate('Date', $this->dateFilter);
+    //     }
+
+    //     $income = $query->where('ArticleType', 'Приход')->sum('Amount');
+    //     $expense = $query->where('ArticleType', 'Расход')->sum('Amount');
+
+    //     // Получаем начальный баланс для даты или используем 0
+    //     $initialBalance = CashRegister::whereDate('Date', $this->dateFilter)
+    //         ->value('initial_balance') ?: 0;
+
+    //     return [
+    //         'initial_balance' => $initialBalance,
+    //         'income' => $income,
+    //         'expense' => $expense,
+    //         'total_balance' => $initialBalance + $income - $expense,
+    //     ];
+    // }
+
+
+
+
+    public function deleteTemplate($id)
+    {
+        $template = Template::findOrFail($id);
+        $template->delete();
+
+        $this->templates = Template::all(); // Обновляем список шаблонов
+        session()->flash('message', 'Шаблон успешно удалён.');
+    }
+
+
+
+    // public function updatedDateFilter($value)
+    // {
+    //     // Преобразуем значение в формат Y-m-d для корректной фильтрации
+    //     try {
+    //         $this->dateFilter = Carbon::parse($value)->format('Y-m-d');
+    //     } catch (\Exception $e) {
+    //         $this->dateFilter = now()->format('Y-m-d'); // Если формат некорректен, используем текущую дату
+    //     }
+    // }
+
+    // public function resetDateFilter()
+    // {
+    //     $this->dateFilter = null;
+    //     $this->initialBalance = CashRegister::whereDate('Date', now()->format('Y-m-d'))
+    //         ->value('initial_balance') ?: 0;
+    // }
+
+
+
     public function mount()
     {
-
         $this->templates = Template::all();
         $this->defaultExchangeRates = ExchangeRate::pluck('rate', 'currency')->toArray();
         $this->availableIcons;
-   
+        // $this->dateFilter = now()->format('Y-m-d');
+
+        // Загрузка начального баланса для текущей даты
+        // $this->initialBalance = CashRegister::whereDate('Date', $this->dateFilter)
+        //     ->value('initial_balance') ?: 0;
     }
 
 
     public function render()
     {
+        // $dailyBalance = $this->getDailyBalance();
+
         $query = Record::query();
-    
+
         // if ($this->dateFilter) {
         //     $query->whereDate('Date', $this->dateFilter);
         // }
-    
+
         $records = $query->orderBy('created_at', 'desc')->paginate(20);
-    
-        return view('livewire.record-form', compact('records'));
+
+        return view('livewire.record-form', [
+            'records' => $records,
+            // 'dailyBalance' => $dailyBalance, // Передаём баланс в шаблон
+        ]);
     }
     
 }

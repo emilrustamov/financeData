@@ -4,15 +4,51 @@
             <button class="btn btn-primary " wire:click="openModal()"> <i class="bi bi-plus-circle"></i> </button>
         </div>
         @foreach ($templates as $template)
-            <div class="col">
-                <button class="btn btn-outline-secondary" wire:click="applyTemplate({{ $template->id }})">
-                    <i class="{{ $template->icon }}"></i>
-                </button>
-                <span class="small mt-1">{{ $template->title_template }}</span>
-            </div>
-        @endforeach
+    <div class="col text-center">
+        <!-- Иконки редактирования и удаления -->
+        <div class="d-flex justify-content-center mb-1">
+            <!-- Кнопка редактирования -->
+            <button class="btn btn-sm btn-outline-primary me-1" wire:click="openModal({{ $template->id }}, true)" title="Редактировать">
+                <i class="bi bi-pencil"></i>
+            </button>
+
+            <!-- Кнопка удаления -->
+            <button class="btn btn-sm btn-outline-danger" wire:click="deleteTemplate({{ $template->id }})" title="Удалить">
+                <i class="bi bi-trash"></i>
+            </button>
+        </div>
+
+        <!-- Кнопка применения шаблона -->
+        <button class="btn btn-outline-secondary" wire:click="applyTemplate({{ $template->id }})">
+            <i class="{{ $template->icon }}"></i>
+        </button>
+        <span class="small mt-1 d-block">{{ $template->title_template }}</span>
     </div>
-  
+@endforeach
+
+    
+    </div>
+
+
+    {{-- <div class="input-group mb-3">
+        <input type="date" class="form-control" wire:model.live="dateFilter">
+        <button type="button" class="btn btn-outline-secondary" wire:click="resetDateFilter">Сбросить дату</button>
+    </div> --}}
+
+
+    {{-- <div class="card">
+        <div class="card-header">Баланс на день</div>
+        <div class="card-body">
+            <p>Начальный баланс: {{ $dailyBalance['initial_balance'] }}</p>
+            <p>Приход: {{ $dailyBalance['income'] }}</p>
+            <p>Расход: {{ $dailyBalance['expense'] }}</p>
+            <p>Итоговый баланс: {{ $dailyBalance['total_balance'] }}</p>
+        </div>
+    </div> --}}
+
+
+
+
     <table class="table table-bordered">
         <thead class="table-light">
             <tr>
@@ -153,8 +189,8 @@
                         </div>
 
                         <div class="mb-3">
-                            <input type="text" wire:model.live="exchangeRate" id="exchangeRate" class="form-control"
-                                placeholder="Курс будет подставлен автоматически">
+                            <input type="text" wire:model.live="exchangeRate" id="exchangeRate"
+                                class="form-control" placeholder="Курс будет подставлен автоматически">
                             @error('exchangeRate')
                                 <span class="text-danger">{{ $message }}</span>
                             @enderror
