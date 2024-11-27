@@ -236,13 +236,21 @@ class RecordForm extends Component
         $this->templates = Template::all();
         $this->defaultExchangeRates = ExchangeRate::pluck('rate', 'currency')->toArray();
         $this->availableIcons;
+   
     }
 
 
     public function render()
     {
-        $records = Record::orderBy('created_at', 'desc')->paginate(20);
-
+        $query = Record::query();
+    
+        // if ($this->dateFilter) {
+        //     $query->whereDate('Date', $this->dateFilter);
+        // }
+    
+        $records = $query->orderBy('created_at', 'desc')->paginate(20);
+    
         return view('livewire.record-form', compact('records'));
     }
+    
 }
