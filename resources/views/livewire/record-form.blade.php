@@ -53,15 +53,30 @@
         @endforeach
     </div>
 
-   
-    
+
+
     <div class="card mt-3">
         <div class="card-header">
             <div class="d-flex align-items-center justify-content-between">
-                 <h5 class="me-3 mb-0">Выбранная дата: {{ $dateFilter ?: 'Баланс за сегодня с записями за все время' }}</h5>
-                {{--<div class="form-group mb-0">
-                    <input type="date" id="dateFilter" class="form-control" wire:model.lazy="dateFilter">
-                </div> --}}
+                <h5 class="me-3 mb-0">
+                    @if (!$filterType || $filterType === 'daily')
+                        Выбранная дата:
+                        {{ $dateFilter ? 'Баланс за день: ' . Carbon\Carbon::parse($dateFilter)->format('d.m.Y') : 'Баланс за сегодня с записями за все время' }}
+                    @elseif ($filterType === 'weekly')
+                        Показывается информация за неделю: {{ now()->startOfWeek()->format('d.m.Y') }} -
+                        {{ now()->endOfWeek()->format('d.m.Y') }}
+                    @elseif ($filterType === 'monthly')
+                        Показывается информация за месяц: {{ now()->startOfMonth()->format('d.m.Y') }} -
+                        {{ now()->endOfMonth()->format('d.m.Y') }}
+                    @elseif ($filterType === 'custom' && $startDate && $endDate)
+                        Показывается информация за диапазон: {{ $startDate }} - {{ $endDate }}
+                    @else
+                        Баланс за сегодня с записями за все время
+                    @endif
+                </h5>
+
+
+
                 <button class="btn btn-sm btn-outline-secondary ms-3" id="toggle-card">
                     <span id="toggle-text">Скрыть</span>
                 </button>
@@ -77,24 +92,14 @@
                     <option value="custom">Пользовательский диапазон</option>
                 </select>
             </div>
-            
+
             <div>
                 <!-- Поле для ввода даты за день -->
                 @if ($filterType === 'daily')
                     <label for="dateFilter">Выберите день</label>
                     <input type="date" id="dateFilter" class="form-control" wire:model.lazy="dateFilter">
                 @endif
-            
-                <!-- Информация за неделю (скрыто, если выбран другой фильтр) -->
-                @if ($filterType === 'weekly')
-                    <p>Показывается информация за неделю: {{ now()->startOfWeek()->format('d.m.Y') }} - {{ now()->endOfWeek()->format('d.m.Y') }}</p>
-                @endif
-            
-                <!-- Информация за месяц (скрыто, если выбран другой фильтр) -->
-                @if ($filterType === 'monthly')
-                    <p>Показывается информация за месяц: {{ now()->startOfMonth()->format('d.m.Y') }} - {{ now()->endOfMonth()->format('d.m.Y') }}</p>
-                @endif
-            
+
                 <!-- Поля для пользовательского диапазона -->
                 @if ($filterType === 'custom')
                     <div class="row">
@@ -109,29 +114,40 @@
                     </div>
                 @endif
             </div>
-            <div class="row">
-                <div class="col-4">
+            <div class="row mt-2">
+                <div class="col-3">
                     <div class="stat-box">
                         <h6>Приход</h6>
                         <p class="text-success fs-4">{{ $dailySummary['income'] }} Манат</p>
                     </div>
                 </div>
-                <div class="col-4">
+                <div class="col-3">
                     <div class="stat-box">
                         <h6>Расход</h6>
                         <p class="text-danger fs-4">{{ $dailySummary['expense'] }} Манат</p>
                     </div>
                 </div>
-                @if ($showBalance)
-                <div class="col-4">
+
+
+                <div class="col-3">
                     <div class="stat-box">
-                        <h6>Баланс</h6>
-                        <p class="text-primary fs-4">
-                            {{ $dailySummary['balance'] }} Манат
+                        <h6>Текущий итоговый баланс</h6>
+                        <p class="fs-4" style="color: {{ $dailySummary['balance'] >= 0 ? 'green' : 'red' }}">
+                            {{ \App\Models\CashRegister::orderBy('Date', 'desc')->value('balance') ?: 0 }} Манат
                         </p>
                     </div>
                 </div>
-            @endif
+                @if ($showBalance)
+                    <div class="col-3">
+                        <div class="stat-box">
+                            <h6>Баланс за выбранный день</h6>
+                            <p class="text-primary fs-4">
+                                {{ $dailySummary['balance'] }} Манат
+                            </p>
+                        </div>
+                    </div>
+                @endif
+
                 <button class="btn btn-success" wire:click="closeCashRegister"
                     @if (\App\Models\CashRegister::whereDate('Date', $dateFilter ?: now()->format('Y-m-d'))->exists()) disabled @endif>
                     {{ \App\Models\CashRegister::whereDate('Date', $dateFilter ?: now()->format('Y-m-d'))->exists() ? 'Касса закрыта' : 'Закрыть кассу' }}
@@ -140,18 +156,18 @@
         </div>
     </div>
     <script>
-        document.addEventListener('DOMContentLoaded', function () {
+        document.addEventListener('DOMContentLoaded', function() {
             const cardBody = document.getElementById('card-body');
             const toggleButton = document.getElementById('toggle-card');
             const toggleText = document.getElementById('toggle-text');
-    
+
             // Проверяем состояние в localStorage
             const isHidden = localStorage.getItem('isCardHidden');
             if (isHidden === 'true') {
                 cardBody.style.display = 'none';
                 toggleText.textContent = 'Раскрыть';
             }
-    
+
             // Обработчик клика
             toggleButton.addEventListener('click', () => {
                 if (cardBody.style.display === 'none') {
@@ -166,7 +182,7 @@
             });
         });
     </script>
-        
+
 
 
     @if (session()->has('error'))
