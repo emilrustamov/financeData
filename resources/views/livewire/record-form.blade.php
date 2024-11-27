@@ -53,20 +53,62 @@
         @endforeach
     </div>
 
-
+   
+    
     <div class="card mt-3">
         <div class="card-header">
             <div class="d-flex align-items-center justify-content-between">
-                <h5 class="me-3 mb-0">Выбранная дата: {{ $dateFilter ?: 'Баланс за сегодня с записями за все время' }}</h5>
-                <div class="form-group mb-0">
+                 <h5 class="me-3 mb-0">Выбранная дата: {{ $dateFilter ?: 'Баланс за сегодня с записями за все время' }}</h5>
+                {{--<div class="form-group mb-0">
                     <input type="date" id="dateFilter" class="form-control" wire:model.lazy="dateFilter">
-                </div>
+                </div> --}}
                 <button class="btn btn-sm btn-outline-secondary ms-3" id="toggle-card">
                     <span id="toggle-text">Скрыть</span>
                 </button>
             </div>
         </div>
         <div class="card-body" id="card-body">
+            <div>
+                <!-- Выбор типа фильтра -->
+                <select id="filterType" class="form-control" wire:model.live="filterType">
+                    <option value="daily">За день</option>
+                    <option value="weekly">За неделю</option>
+                    <option value="monthly">За месяц</option>
+                    <option value="custom">Пользовательский диапазон</option>
+                </select>
+            </div>
+            
+            <div>
+                <!-- Поле для ввода даты за день -->
+                @if ($filterType === 'daily')
+                    <label for="dateFilter">Выберите день</label>
+                    <input type="date" id="dateFilter" class="form-control" wire:model.lazy="dateFilter">
+                @endif
+            
+                <!-- Информация за неделю (скрыто, если выбран другой фильтр) -->
+                @if ($filterType === 'weekly')
+                    <p>Показывается информация за неделю: {{ now()->startOfWeek()->format('d.m.Y') }} - {{ now()->endOfWeek()->format('d.m.Y') }}</p>
+                @endif
+            
+                <!-- Информация за месяц (скрыто, если выбран другой фильтр) -->
+                @if ($filterType === 'monthly')
+                    <p>Показывается информация за месяц: {{ now()->startOfMonth()->format('d.m.Y') }} - {{ now()->endOfMonth()->format('d.m.Y') }}</p>
+                @endif
+            
+                <!-- Поля для пользовательского диапазона -->
+                @if ($filterType === 'custom')
+                    <div class="row">
+                        <div class="col">
+                            <label for="startDate">Начало</label>
+                            <input type="date" id="startDate" class="form-control" wire:model.live="startDate">
+                        </div>
+                        <div class="col">
+                            <label for="endDate">Конец</label>
+                            <input type="date" id="endDate" class="form-control" wire:model.live="endDate">
+                        </div>
+                    </div>
+                @endif
+            </div>
             <div class="row">
                 <div class="col-4">
                     <div class="stat-box">
@@ -80,12 +122,16 @@
                         <p class="text-danger fs-4">{{ $dailySummary['expense'] }} Манат</p>
                     </div>
                 </div>
+                @if ($showBalance)
                 <div class="col-4">
                     <div class="stat-box">
                         <h6>Баланс</h6>
-                        <p class="text-primary fs-4">{{ $dailySummary['balance'] }} Манат</p>
+                        <p class="text-primary fs-4">
+                            {{ $dailySummary['balance'] }} Манат
+                        </p>
                     </div>
                 </div>
+            @endif
                 <button class="btn btn-success" wire:click="closeCashRegister"
                     @if (\App\Models\CashRegister::whereDate('Date', $dateFilter ?: now()->format('Y-m-d'))->exists()) disabled @endif>
                     {{ \App\Models\CashRegister::whereDate('Date', $dateFilter ?: now()->format('Y-m-d'))->exists() ? 'Касса закрыта' : 'Закрыть кассу' }}

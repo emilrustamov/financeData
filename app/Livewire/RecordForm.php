@@ -25,6 +25,10 @@ class RecordForm extends Component
     public $recordId = null;
     public $isModalOpen = false;
     public $object;
+    public $filterType = 'daily'; // Тип фильтра: daily, weekly, monthly, custom
+    public $startDate = null;    // Для пользовательского диапазона
+    public $endDate = null;      // Для пользовательского диапазона
+
     public $availableIcons = [
         'bi-fuel-pump',
         'bi-tools',
@@ -186,6 +190,21 @@ class RecordForm extends Component
     }
 
 
+    public function updatedFilterType()
+    {
+        if ($this->filterType === 'custom') {
+            $this->startDate = now()->startOfWeek()->format('Y-m-d');
+            $this->endDate = now()->endOfWeek()->format('Y-m-d');
+        } else {
+            $this->startDate = null;
+            $this->endDate = null;
+            $this->dateFilter = $this->filterType === 'daily' ? now()->format('Y-m-d') : null;
+        }
+
+        $this->getDailySummary(); // Перезапускаем расчет
+    }
+
+
 
 
 
@@ -236,20 +255,41 @@ class RecordForm extends Component
     }
 
 
-    public function getDailySummary($date = null)
+    public function getDailySummary()
     {
-        $date = $date ?: $this->dateFilter ?: now()->format('Y-m-d');
-
-        $income = Record::whereDate('Date', $date)->where('ArticleType', 'Приход')->sum('Amount');
-        $expense = Record::whereDate('Date', $date)->where('ArticleType', 'Расход')->sum('Amount');
-        $balance = CashRegister::whereDate('Date', $date)->value('balance') ?? 'Не закрыта';
-
+        $incomeQuery = Record::query();
+        $expenseQuery = Record::query();
+        
+        if ($this->filterType === 'daily' && $this->dateFilter) {
+            $incomeQuery->whereDate('Date', $this->dateFilter);
+            $expenseQuery->whereDate('Date', $this->dateFilter);
+        } elseif ($this->filterType === 'weekly') {
+            $incomeQuery->whereBetween('Date', [now()->startOfWeek(), now()->endOfWeek()]);
+            $expenseQuery->whereBetween('Date', [now()->startOfWeek(), now()->endOfWeek()]);
+        } elseif ($this->filterType === 'monthly') {
+            $incomeQuery->whereBetween('Date', [now()->startOfMonth(), now()->endOfMonth()]);
+            $expenseQuery->whereBetween('Date', [now()->startOfMonth(), now()->endOfMonth()]);
+        } elseif ($this->filterType === 'custom' && $this->startDate && $this->endDate) {
+            $incomeQuery->whereBetween('Date', [$this->startDate, $this->endDate]);
+            $expenseQuery->whereBetween('Date', [$this->startDate, $this->endDate]);
+        }
+    
+        // Считаем доходы и расходы
+        $income = $incomeQuery->where('ArticleType', 'Приход')->sum('Amount');
+        $expense = $expenseQuery->where('ArticleType', 'Расход')->sum('Amount');
+        
+        // Для фильтра "по дням" считаем баланс
+        $balance = $this->filterType === 'daily' 
+            ? CashRegister::whereDate('Date', $this->dateFilter)->value('balance') ?? 'Не закрыта'
+            : null;
+    
         return [
             'income' => $income,
             'expense' => $expense,
             'balance' => $balance,
         ];
     }
+    
 
 
     public function closeCashRegister()
@@ -335,8 +375,14 @@ class RecordForm extends Component
 
         $records = Record::query();
 
-        if ($this->dateFilter) {
+        if ($this->filterType === 'daily' && $this->dateFilter) {
             $records->whereDate('Date', $this->dateFilter);
+        } elseif ($this->filterType === 'weekly') {
+            $records->whereBetween('Date', [now()->startOfWeek(), now()->endOfWeek()]);
+        } elseif ($this->filterType === 'monthly') {
+            $records->whereBetween('Date', [now()->startOfMonth(), now()->endOfMonth()]);
+        } elseif ($this->filterType === 'custom' && $this->startDate && $this->endDate) {
+            $records->whereBetween('Date', [$this->startDate, $this->endDate]);
         }
 
         $records = $records->orderBy('created_at', 'desc')->paginate(20);
@@ -344,7 +390,7 @@ class RecordForm extends Component
         return view('livewire.record-form', [
             'records' => $records,
             'dailySummary' => $dailySummary,
+            'showBalance' => $this->filterType === 'daily',
         ]);
     }
-    
 }
