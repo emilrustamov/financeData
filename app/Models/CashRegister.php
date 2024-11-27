@@ -11,10 +11,7 @@ class CashRegister extends Model
     use HasFactory;
     protected $table = 'cash_register';
     protected $fillable = [
-        'ArticleType',
-        'Amount',
-        'Currency',
-        'initial_balance',
+        'balance',
         'Date',
     ];
 }
