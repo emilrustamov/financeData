@@ -12,13 +12,10 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('cash_register', function (Blueprint $table) {
-            $table->id(); // Поле ID
-            $table->string('ArticleType', 50); // Тип (Приход или Расход)
-            $table->decimal('Amount', 10, 2); // Сумма
-            $table->string('Currency', 10); // Валюта
-            $table->decimal('initial_balance', 10, 2)->default(0);
-            $table->date('Date'); // Дата операции
-            $table->timestamps(); // Поля created_at и updated_at
+            $table->id();
+            $table->decimal('balance', 10, 2)->default(0); // Текущий баланс кассы
+            $table->date('Date')->unique(); 
+            $table->timestamps();
         });
         
     }

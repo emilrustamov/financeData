@@ -4,30 +4,71 @@
             <button class="btn btn-primary " wire:click="openModal()"> <i class="bi bi-plus-circle"></i> </button>
         </div>
         @foreach ($templates as $template)
-    <div class="col text-center">
-        <!-- Иконки редактирования и удаления -->
-        <div class="d-flex justify-content-center mb-1">
-            <!-- Кнопка редактирования -->
-            <button class="btn btn-sm btn-outline-primary me-1" wire:click="openModal({{ $template->id }}, true)" title="Редактировать">
-                <i class="bi bi-pencil"></i>
-            </button>
+            <div class="col text-center">
+                <!-- Иконки редактирования и удаления -->
+                <div class="d-flex justify-content-center mb-1">
+                    <!-- Кнопка редактирования -->
+                    <button class="btn btn-sm btn-outline-primary me-1" wire:click="openModal({{ $template->id }}, true)"
+                        title="Редактировать">
+                        <i class="bi bi-pencil"></i>
+                    </button>
 
-            <!-- Кнопка удаления -->
-            <button class="btn btn-sm btn-outline-danger" wire:click="deleteTemplate({{ $template->id }})" title="Удалить">
-                <i class="bi bi-trash"></i>
-            </button>
+                    <!-- Кнопка удаления -->
+                    <button class="btn btn-sm btn-outline-danger" wire:click="deleteTemplate({{ $template->id }})"
+                        title="Удалить">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                </div>
+
+                <!-- Кнопка применения шаблона -->
+                <button class="btn btn-outline-secondary" wire:click="applyTemplate({{ $template->id }})">
+                    <i class="{{ $template->icon }}"></i>
+                </button>
+                <span class="small mt-1 d-block">{{ $template->title_template }}</span>
+            </div>
+        @endforeach
+    </div>
+
+    <div class="form-group">
+        <label for="dateFilter">Выберите дату</label>
+        <input type="date" id="dateFilter" class="form-control" wire:model.lazy="dateFilter">
+    </div>
+
+    <div class="card mt-3">
+        <div class="card-header">
+            <h5>Выбранная дата: {{ $dateFilter ?: 'Сегодня' }}</h5>
         </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-4">
+                    <div class="stat-box">
+                        <h6>Приход</h6>
+                        <p class="text-success fs-4">{{ $dailySummary['income'] }} Манат</p>
+                    </div>
+                </div>
+                <div class="col-4">
+                    <div class="stat-box">
+                        <h6>Расход</h6>
+                        <p class="text-danger fs-4">{{ $dailySummary['expense'] }} Манат</p>
+                    </div>
+                </div>
+                <div class="col-4">
+                    <div class="stat-box">
+                        <h6>Баланс</h6>
+                        <p class="text-primary fs-4">{{ $dailySummary['balance'] }} Манат
+                        </p>
+                    </div>
+                </div>
+                <button class="btn btn-success" wire:click="closeCashRegister"
+                    @if (\App\Models\CashRegister::whereDate('Date', $dateFilter ?: now()->format('Y-m-d'))->exists()) disabled @endif>
+                    {{ \App\Models\CashRegister::whereDate('Date', $dateFilter ?: now()->format('Y-m-d'))->exists() ? 'Касса закрыта' : 'Закрыть кассу' }}
+                </button>
 
-        <!-- Кнопка применения шаблона -->
-        <button class="btn btn-outline-secondary" wire:click="applyTemplate({{ $template->id }})">
-            <i class="{{ $template->icon }}"></i>
-        </button>
-        <span class="small mt-1 d-block">{{ $template->title_template }}</span>
+            </div>
+        </div>
     </div>
-@endforeach
 
-    
-    </div>
+
 
 
     {{-- <div class="input-group mb-3">
@@ -48,7 +89,11 @@
 
 
 
-
+    @if (session()->has('error'))
+        <div class="alert alert-danger">
+            {{ session('error') }}
+        </div>
+    @endif
     <table class="table table-bordered">
         <thead class="table-light">
             <tr>
@@ -124,8 +169,19 @@
 
                 </div>
                 <div class="modal-body">
-                    <form wire:submit.prevent="submit">
+                    @if (session()->has('error'))
+                        <div class="alert alert-danger">
+                            {{ session('error') }}
+                        </div>
+                    @endif
 
+                    <form wire:submit.prevent="submit">
+                        @php
+                            $isCashClosed = \App\Models\CashRegister::whereDate(
+                                'Date',
+                                $dateFilter ?: now()->format('Y-m-d'),
+                            )->exists();
+                        @endphp
                         <div x-data="{ suggestions: @entangle('suggestions'), query: @entangle('object') }" class="mb-3">
                             <input id="object" type="text" class="form-control" x-model="query"
                                 placeholder="Введите объект/клиента">
@@ -164,6 +220,7 @@
                             @error('amount')
                                 <span class="text-danger">{{ $message }}</span>
                             @enderror
+
                         </div>
 
 

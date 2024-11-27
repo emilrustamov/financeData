@@ -21,12 +21,9 @@ class RecordForm extends Component
     public $isTemplate = false;
     public $dateFilter;
     public $titleTemplate, $icon;
-    public $totalDebit = 0;
-    public $totalCredit = 0;
     public $templates = [];
     public $recordId = null;
     public $isModalOpen = false;
-
     public $object;
     public $availableIcons = [
         'bi-fuel-pump',
@@ -41,9 +38,7 @@ class RecordForm extends Component
         'bi-person-badge',
         'bi-person-workspace',
     ]; // сделать пустым, если используется метод getAvailableIcons
-    protected $initialBalance = 1000; // Укажите ваш начальный баланс
-
-
+    public $isCashClosed = false;
     public $defaultExchangeRates = [];
     public $suggestions = [];
     protected $rules = [
@@ -64,11 +59,11 @@ class RecordForm extends Component
     {
         $this->resetExcept(['defaultExchangeRates', 'templates', 'availableIcons', 'dateFilter']);
         $this->recordId = $id;
-        $this->isTemplate = $isTemplate; // Устанавливаем, что редактируем шаблон
+        $this->isTemplate = $isTemplate;
 
         if ($id) {
             if ($isTemplate) {
-                // Если это шаблон
+
                 $template = Template::findOrFail($id);
 
                 $this->titleTemplate = $template->title_template;
@@ -82,7 +77,7 @@ class RecordForm extends Component
                 $this->link = $template->Link;
                 $this->object = $template->Object;
             } else {
-                // Если это обычная запись
+
                 $record = Record::findOrFail($id);
 
                 $this->articleType = $record->ArticleType;
@@ -147,6 +142,14 @@ class RecordForm extends Component
 
         $this->validate($rules);
 
+        $date = $this->date ?: now()->format('Y-m-d');
+
+        // Проверка: закрыта ли касса за выбранную дату
+        if (CashRegister::whereDate('Date', $date)->exists()) {
+            session()->flash('error', 'Касса за этот день уже закрыта. Невозможно выполнить операцию.');
+            return;
+        }
+
         $model = $this->isTemplate ? Template::class : Record::class;
 
         $data = [
@@ -175,29 +178,6 @@ class RecordForm extends Component
                 ['id' => $this->recordId],
                 $data
             );
-
-            // Проверяем наличие начального баланса для текущей даты
-            // $existingBalance = CashRegister::whereDate('Date', $this->date)
-            //     ->exists();
-
-            // // Если записи начального баланса нет, создаем её
-            // if (!$existingBalance) {
-            //     CashRegister::create([
-            //         'initial_balance' => $this->initialBalance,
-            //         'Date' => $this->date,
-            //         'ArticleType' => $record->ArticleType,
-            //         'Amount' => $record->Amount,
-            //         'Currency' => $record->Currency,
-            //     ]);
-            // }
-
-            // // Записываем приход или расход в таблице CashRegister
-            // CashRegister::create([
-            //     'ArticleType' => $record->ArticleType,
-            //     'Amount' => $record->Amount,
-            //     'Currency' => $record->Currency,
-            //     'Date' => $record->Date,
-            // ]);
         }
 
         $this->resetExcept(['defaultExchangeRates', 'templates', 'availableIcons', 'dateFilter']);
@@ -238,7 +218,6 @@ class RecordForm extends Component
 
 
 
-
     public function applyTemplate($id)
     {
         $template = Template::findOrFail($id);
@@ -255,6 +234,63 @@ class RecordForm extends Component
         $this->object = $template->Object;
         $this->isModalOpen = true;
     }
+
+
+    public function getDailySummary($date = null)
+    {
+        $date = $date ?: $this->dateFilter ?: now()->format('Y-m-d');
+
+        $income = Record::whereDate('Date', $date)->where('ArticleType', 'Приход')->sum('Amount');
+        $expense = Record::whereDate('Date', $date)->where('ArticleType', 'Расход')->sum('Amount');
+        $balance = CashRegister::whereDate('Date', $date)->value('balance') ?? 'Не закрыта';
+
+        return [
+            'income' => $income,
+            'expense' => $expense,
+            'balance' => $balance,
+        ];
+    }
+
+
+    public function closeCashRegister()
+    {
+        // Проверяем, выбрана ли дата, если нет — используем текущую дату
+        $date = $this->dateFilter ?: now()->format('Y-m-d');
+
+        // Проверяем, если дата в будущем — запрет закрытия
+        if (Carbon::parse($date)->isFuture()) {
+            session()->flash('error', 'Нельзя закрыть кассу за будущий день.');
+            return;
+        }
+
+        // Проверяем, закрыта ли касса за выбранную дату
+        if (CashRegister::whereDate('Date', $date)->exists()) {
+            session()->flash('error', 'Касса уже закрыта за выбранный день.');
+            return;
+        }
+
+        // Получаем начальный баланс из последней закрытой даты
+        $previousBalance = CashRegister::whereDate('Date', '<', $date)
+            ->orderBy('Date', 'desc')
+            ->value('balance') ?: 0;
+
+        // Считаем приход и расход за выбранную дату
+        $income = Record::whereDate('Date', $date)->where('ArticleType', 'Приход')->sum('Amount');
+        $expense = Record::whereDate('Date', $date)->where('ArticleType', 'Расход')->sum('Amount');
+
+        // Рассчитываем итоговый баланс
+        $currentBalance = $previousBalance + $income - $expense;
+
+        // Фиксируем баланс за выбранную дату
+        CashRegister::create([
+            'Date' => $date,
+            'balance' => $currentBalance,
+        ]);
+
+        session()->flash('message', "Касса за {$date} успешно закрыта.");
+    }
+
+
 
     //раскоментируйте если нужны все иконки из bootstrap-icons
     // public function getAvailableIcons() 
@@ -275,33 +311,6 @@ class RecordForm extends Component
     // }
 
 
-
-    // public function getDailyBalance()
-    // {
-    //     $query = CashRegister::query();
-
-    //     if ($this->dateFilter) {
-    //         $query->whereDate('Date', $this->dateFilter);
-    //     }
-
-    //     $income = $query->where('ArticleType', 'Приход')->sum('Amount');
-    //     $expense = $query->where('ArticleType', 'Расход')->sum('Amount');
-
-    //     // Получаем начальный баланс для даты или используем 0
-    //     $initialBalance = CashRegister::whereDate('Date', $this->dateFilter)
-    //         ->value('initial_balance') ?: 0;
-
-    //     return [
-    //         'initial_balance' => $initialBalance,
-    //         'income' => $income,
-    //         'expense' => $expense,
-    //         'total_balance' => $initialBalance + $income - $expense,
-    //     ];
-    // }
-
-
-
-
     public function deleteTemplate($id)
     {
         $template = Template::findOrFail($id);
@@ -312,54 +321,29 @@ class RecordForm extends Component
     }
 
 
-
-    // public function updatedDateFilter($value)
-    // {
-    //     // Преобразуем значение в формат Y-m-d для корректной фильтрации
-    //     try {
-    //         $this->dateFilter = Carbon::parse($value)->format('Y-m-d');
-    //     } catch (\Exception $e) {
-    //         $this->dateFilter = now()->format('Y-m-d'); // Если формат некорректен, используем текущую дату
-    //     }
-    // }
-
-    // public function resetDateFilter()
-    // {
-    //     $this->dateFilter = null;
-    //     $this->initialBalance = CashRegister::whereDate('Date', now()->format('Y-m-d'))
-    //         ->value('initial_balance') ?: 0;
-    // }
-
-
-
     public function mount()
     {
         $this->templates = Template::all();
         $this->defaultExchangeRates = ExchangeRate::pluck('rate', 'currency')->toArray();
         $this->availableIcons;
-        // $this->dateFilter = now()->format('Y-m-d');
-
-        // Загрузка начального баланса для текущей даты
-        // $this->initialBalance = CashRegister::whereDate('Date', $this->dateFilter)
-        //     ->value('initial_balance') ?: 0;
     }
 
 
     public function render()
     {
-        // $dailyBalance = $this->getDailyBalance();
+        $dailySummary = $this->getDailySummary();
 
-        $query = Record::query();
+        $records = Record::query();
 
-        // if ($this->dateFilter) {
-        //     $query->whereDate('Date', $this->dateFilter);
-        // }
+        if ($this->dateFilter) {
+            $records->whereDate('Date', $this->dateFilter);
+        }
 
-        $records = $query->orderBy('created_at', 'desc')->paginate(20);
+        $records = $records->orderBy('created_at', 'desc')->paginate(20);
 
         return view('livewire.record-form', [
             'records' => $records,
-            // 'dailyBalance' => $dailyBalance, // Передаём баланс в шаблон
+            'dailySummary' => $dailySummary,
         ]);
     }
     
