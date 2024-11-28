@@ -25,5 +25,11 @@ class Template extends Model
         'ExchangeRate',
         'Link',
         'Object',
+        'user_id',
     ];
+
+    public function user()
+    {
+        return $this->belongsTo(User::class);
+    }
 }

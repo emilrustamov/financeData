@@ -1,5 +1,7 @@
 <?php
 
+use App\Livewire\UserComponent;
+
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Auth;
 
@@ -27,4 +29,6 @@ Route::middleware('auth')->get('/home', function () {
 Route::get('/register', function () {
     return redirect('/login');
 })->name('register');
+
+Route::middleware('auth')->get('/users', UserComponent::class)->name('users.index');
 

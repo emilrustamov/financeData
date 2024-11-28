@@ -11,31 +11,42 @@
 
     <title>{{ config('app.name', 'Finance') }}</title>
 
-
     <!-- Scripts -->
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
 
 <body>
     <div id="app">
-        <!-- <nav class="navbar navbar-expand-md navbar-light bg-white shadow-sm">
+        <nav class="navbar navbar-expand-md navbar-light bg-white shadow-sm">
             <div class="container">
-                {{-- <h3>Добро пожаловать, {{ Auth::user()->name }}!</h3> --}}
+                <a class="navbar-brand" href="{{ url('/') }}">
+                    {{ config('app.name', 'Finance') }}
+                </a>
+
                 <button class="navbar-toggler" type="button" data-bs-toggle="collapse"
-                    data-bs-target="#navbarSupportedContent" aria-controls="navbarSupportedContent"
-                    aria-expanded="false" aria-label="{{ __('Toggle navigation') }}">
+                    data-bs-target="#navbarNavDropdown" aria-controls="navbarNavDropdown"
+                    aria-expanded="false" aria-label="Toggle navigation">
                     <span class="navbar-toggler-icon"></span>
                 </button>
 
-                <div class="collapse navbar-collapse" id="navbarSupportedContent">
-           
+                <div class="collapse navbar-collapse" id="navbarNavDropdown">
+                    <!-- Left Side of Navbar -->
                     <ul class="navbar-nav me-auto">
-
+                        @auth
+                            <li class="nav-item">
+                                <a class="nav-link" href="{{ route('home') }}">Касса</a>
+                            </li>
+                            @if (Auth::user()->is_admin)
+                                <li class="nav-item">
+                                    <a class="nav-link" href="{{ route('users.index') }}">Пользователи</a>
+                                </li>
+                            @endif
+                        @endauth
                     </ul>
 
-                
+                    <!-- Right Side of Navbar -->
                     <ul class="navbar-nav ms-auto">
-                  
+                        <!-- Authentication Links -->
                         @guest
                             @if (Route::has('login'))
                                 <li class="nav-item">
@@ -65,10 +76,11 @@
                     </ul>
                 </div>
             </div>
-        </nav> -->
+        </nav>
 
         <main class="py-4">
             @yield('content')
+            {{ $slot ?? '' }}
         </main>
     </div>
 </body>

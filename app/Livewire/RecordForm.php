@@ -170,6 +170,7 @@ class RecordForm extends Component
         if ($this->isTemplate) {
             $data['title_template'] = $this->titleTemplate;
             $data['icon'] = $this->icon;
+            $data['user_id'] = Auth::id(); // Привязка к текущему пользователю
 
             // Обновляем или создаем запись в шаблонах
             Template::updateOrCreate(
@@ -178,11 +179,12 @@ class RecordForm extends Component
             );
         } else {
             // Обновляем или создаем запись в таблице Record
-            $record = Record::updateOrCreate(
+            Record::updateOrCreate(
                 ['id' => $this->recordId],
                 $data
             );
         }
+
 
         $this->resetExcept(['defaultExchangeRates', 'templates', 'availableIcons', 'dateFilter']);
         session()->flash('message', $this->recordId ? 'Запись успешно обновлена.' : 'Запись успешно добавлена.');
@@ -236,10 +238,9 @@ class RecordForm extends Component
     }
 
 
-
     public function applyTemplate($id)
     {
-        $template = Template::findOrFail($id);
+        $template = Template::where('id', $id)->where('user_id', Auth::id())->firstOrFail(); // Только свои шаблоны
 
         $this->resetExcept(['defaultExchangeRates', 'templates', 'availableIcons', 'dateFilter']);
         $this->isTemplate = false;
@@ -255,11 +256,12 @@ class RecordForm extends Component
     }
 
 
+
     public function getDailySummary()
     {
         $incomeQuery = Record::query();
         $expenseQuery = Record::query();
-        
+
         if ($this->filterType === 'daily' && $this->dateFilter) {
             $incomeQuery->whereDate('Date', $this->dateFilter);
             $expenseQuery->whereDate('Date', $this->dateFilter);
@@ -273,23 +275,23 @@ class RecordForm extends Component
             $incomeQuery->whereBetween('Date', [$this->startDate, $this->endDate]);
             $expenseQuery->whereBetween('Date', [$this->startDate, $this->endDate]);
         }
-    
+
         // Считаем доходы и расходы
         $income = $incomeQuery->where('ArticleType', 'Приход')->sum('Amount');
         $expense = $expenseQuery->where('ArticleType', 'Расход')->sum('Amount');
-        
+
         // Для фильтра "по дням" считаем баланс
-        $balance = $this->filterType === 'daily' 
+        $balance = $this->filterType === 'daily'
             ? CashRegister::whereDate('Date', $this->dateFilter)->value('balance') ?? 'Не закрыта'
             : null;
-    
+
         return [
             'income' => $income,
             'expense' => $expense,
             'balance' => $balance,
         ];
     }
-    
+
 
 
     public function closeCashRegister()
@@ -353,24 +355,28 @@ class RecordForm extends Component
 
     public function deleteTemplate($id)
     {
-        $template = Template::findOrFail($id);
+        $template = Template::where('id', $id)->where('user_id', Auth::id())->firstOrFail(); // Удаляем только свой шаблон
         $template->delete();
 
-        $this->templates = Template::all(); // Обновляем список шаблонов
+        $this->templates = Template::where('user_id', Auth::id())->get(); // Обновляем список шаблонов
         session()->flash('message', 'Шаблон успешно удалён.');
     }
 
 
+
     public function mount()
     {
-        $this->templates = Template::all();
+        $this->templates = Template::where('user_id', Auth::id())->get(); // Только шаблоны текущего пользователя
         $this->defaultExchangeRates = ExchangeRate::pluck('rate', 'currency')->toArray();
         $this->availableIcons;
     }
 
 
+
     public function render()
     {
+        $this->templates = Template::where('user_id', Auth::id())->get(); // Обновляем список шаблонов
+
         $dailySummary = $this->getDailySummary();
 
         $records = Record::query();
@@ -393,4 +399,5 @@ class RecordForm extends Component
             'showBalance' => $this->filterType === 'daily',
         ]);
     }
+
 }
