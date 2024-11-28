@@ -20,6 +20,7 @@ class RecordForm extends Component
     public $articleType, $articleDescription, $amount, $currency, $date, $exchangeRate, $link;
     public $isTemplate = false;
     public $dateFilter;
+    public $totalBalance;
     public $titleTemplate, $icon;
     public $templates = [];
     public $recordId = null;
@@ -292,6 +293,20 @@ class RecordForm extends Component
         ];
     }
 
+    public function calculateTotalBalance()
+{
+    // Последний закрытый баланс
+    $lastClosedBalance = CashRegister::orderBy('Date', 'desc')->value('balance') ?: 0;
+
+    // Приходы и расходы за текущий день
+    $today = now()->format('Y-m-d');
+    $incomeToday = Record::whereDate('Date', $today)->where('ArticleType', 'Приход')->sum('Amount');
+    $expenseToday = Record::whereDate('Date', $today)->where('ArticleType', 'Расход')->sum('Amount');
+
+    // Итоговый баланс: закрытая касса + движения за текущий день
+    $this->totalBalance = $lastClosedBalance + $incomeToday - $expenseToday;
+}
+    
 
 
     public function closeCashRegister()
@@ -328,7 +343,7 @@ class RecordForm extends Component
             'Date' => $date,
             'balance' => $currentBalance,
         ]);
-
+        $this->calculateTotalBalance();
         session()->flash('message', "Касса за {$date} успешно закрыта.");
     }
 
@@ -369,6 +384,7 @@ class RecordForm extends Component
         $this->templates = Template::where('user_id', Auth::id())->get(); // Только шаблоны текущего пользователя
         $this->defaultExchangeRates = ExchangeRate::pluck('rate', 'currency')->toArray();
         $this->availableIcons;
+        $this->calculateTotalBalance();
     }
 
 

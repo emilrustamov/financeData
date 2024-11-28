@@ -132,9 +132,10 @@
                 <div class="col-3">
                     <div class="stat-box">
                         <h6>Текущий итоговый баланс</h6>
-                        <p class="fs-4" style="color: {{ $dailySummary['balance'] >= 0 ? 'green' : 'red' }}">
-                            {{ \App\Models\CashRegister::orderBy('Date', 'desc')->value('balance') ?: 0 }} Манат
+                        <p class="fs-4" style="color: {{ $totalBalance >= 0 ? 'green' : 'red' }}">
+                            {{ $totalBalance }} Манат
                         </p>
+                        
                     </div>
                 </div>
                 @if ($showBalance)
