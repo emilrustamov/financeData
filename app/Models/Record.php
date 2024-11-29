@@ -10,7 +10,7 @@ class Record extends Model
 {
     use HasFactory;
 
-    protected $table = 'records'; 
+    protected $table = 'records';
     protected $fillable = [
         'ArticleType',
         'ArticleDescription',
@@ -20,5 +20,12 @@ class Record extends Model
         'ExchangeRate',
         'Link',
         'Object',
+        'cash_id',
     ];
+
+    public function cashRegister()
+    {
+        return $this->belongsTo(CashRegister::class, 'cash_id');
+    }
+
 }

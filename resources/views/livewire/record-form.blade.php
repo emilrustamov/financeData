@@ -135,7 +135,7 @@
                         <p class="fs-4" style="color: {{ $totalBalance >= 0 ? 'green' : 'red' }}">
                             {{ $totalBalance }} Манат
                         </p>
-                        
+
                     </div>
                 </div>
                 @if ($showBalance)
@@ -191,6 +191,22 @@
             {{ session('error') }}
         </div>
     @endif
+    <div class="mb-3">
+        @if (Auth::user()->is_admin)
+            <label for="selectCashRegisterFilter">Выберите кассу</label>
+            <select wire:model="selectedCashRegisterFilter" id="selectCashRegisterFilter" class="form-select">
+                <option value="">Все кассы</option>
+                @foreach ($availableCashRegisters as $cashRegister)
+                    <option value="{{ $cashRegister->id }}">
+                        Касса за {{ \Carbon\Carbon::parse($cashRegister->Date)->format('d.m.Y') }} — 
+                        Баланс: {{ number_format($cashRegister->balance, 2, '.', ' ') }} Манат
+                    </option>
+                @endforeach
+            </select>
+        @endif
+    </div>
+    
+
     <table class="table table-bordered">
         <thead class="table-light">
             <tr>
@@ -249,6 +265,9 @@
             @endforeach
         </tbody>
 
+
+
+
     </table>
     <div class="mt-4">
         {{ $records->links() }}
@@ -302,6 +321,25 @@
                                 <span class="text-danger">{{ $message }}</span>
                             @enderror
                         </div>
+                        <div class="mb-3">
+                            <label for="cashRegister">Касса</label>
+                            <select wire:model="selectedCashRegister" id="cashRegister" class="form-select">
+                                <option value="" disabled selected>Выберите кассу</option>
+                                <!-- Добавляем значение по умолчанию -->
+                                @foreach ($availableCashRegisters as $cashRegister)
+                                    <option value="{{ $cashRegister->id }}">
+                                        Касса за {{ \Carbon\Carbon::parse($cashRegister->Date)->format('d.m.Y') }} —
+                                        Баланс: {{ number_format($cashRegister->balance, 2, '.', ' ') }} Манат
+                                    </option>
+                                @endforeach
+                            </select>
+                            @error('selectedCashRegister')
+                                <span class="text-danger">{{ $message }}</span>
+                            @enderror
+                        </div>
+
+
+
 
                         <div class="mb-3">
                             <textarea wire:model="articleDescription" id="articleDescription" class="form-control"
