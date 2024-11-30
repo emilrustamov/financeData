@@ -40,6 +40,9 @@
                                 <li class="nav-item">
                                     <a class="nav-link" href="{{ route('users.index') }}">Пользователи</a>
                                 </li>
+                                <li class="nav-item">
+                                    <a class="nav-link" href="{{ route('cash.index') }}">Настройки касс</a>
+                                </li>
                             @endif
                         @endauth
                     </ul>

@@ -43,4 +43,15 @@ class User extends Authenticatable
         'email_verified_at' => 'datetime',
         'password' => 'hashed',
     ];
+
+    public function cashes()
+    {
+        return $this->belongsToMany(Cash::class, 'cash_user');
+    }
+
+    public function availableCashRegisters()
+{
+    return $this->belongsToMany(Cash::class, 'cash_user', 'user_id', 'cash_id');
+}
+
 }
