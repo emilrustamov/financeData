@@ -326,15 +326,14 @@
                             @enderror
                         </div>
                         <div class="mb-3">
-                            @if (Auth::user()->is_admin || (Auth::user()->availableCashRegisters ?? collect())->count() > 1)
+                            @if (Auth::user()->is_admin)
                                 <label for="selectCashRegister">Выберите кассу</label>
                                 <select wire:model="selectedCashRegister" id="selectCashRegister"
                                     class="form-select">
                                     <option value="" disabled selected>Выберите кассу</option>
                                     @foreach ($availableCashRegisters as $cash)
                                         <option value="{{ $cash->id }}">
-                                            Касса: {{ $cash->title }} — Баланс:
-                                            {{ number_format($cash->balance, 2, '.', ' ') }} Манат
+                                            Касса: {{ $cash->title }}
                                         </option>
                                     @endforeach
                                 </select>

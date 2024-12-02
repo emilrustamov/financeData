@@ -296,6 +296,20 @@ class RecordForm extends Component
         $this->object = $record->Object;
         $this->recordId = null;
         $this->isModalOpen = true;
+        // Получаем доступные кассы
+        $availableCashRegisterIds = auth()->user()->availableCashRegisters()->pluck('cash.id')->toArray();
+        \Log::debug('Available Cash Registers WHILE COPYING: ', $availableCashRegisterIds);
+
+        // Устанавливаем доступные кассы в компонент
+        $this->availableCashRegisters = Cash::whereIn('id', $availableCashRegisterIds)->get();
+
+        // Проверяем, доступна ли касса из оригинальной записи
+        if (in_array($record->cash_id, $availableCashRegisterIds)) {
+            $this->selectedCashRegister = $record->cash_id;
+        } else {
+            $this->selectedCashRegister = $this->availableCashRegisters->first()->id ?? null; // Первая доступная касса
+            session()->flash('error', 'Касса записи недоступна. Выбрана первая доступная касса.');
+        }
     }
 
 
@@ -324,6 +338,22 @@ class RecordForm extends Component
         $this->link = $template->Link;
         $this->object = $template->Object;
         $this->isModalOpen = true;
+
+        // Получаем доступные кассы, к которым пользователь имеет доступ
+        $availableCashRegisterIds = auth()->user()->availableCashRegisters()->pluck('cash.id')->toArray();
+        \Log::debug('Available Cash Registers WHILE APPLYING TEMPLATE: ', $availableCashRegisterIds);
+
+        // Устанавливаем доступные кассы в компонент
+        $this->availableCashRegisters = Cash::whereIn('id', $availableCashRegisterIds)->get();
+
+        // Устанавливаем выбранную кассу, если шаблон связан с доступной кассой
+        if (in_array($template->cash_id, $availableCashRegisterIds)) {
+            $this->selectedCashRegister = $template->cash_id; // Привязываем кассу из шаблона
+        } else {
+            // Если касса недоступна, выбираем первую доступную кассу
+            $this->selectedCashRegister = $this->availableCashRegisters->first()->id ?? null;
+            // session()->flash('error', 'Касса шаблона недоступна. Выбрана первая доступная касса.');
+        }
     }
 
 
@@ -485,7 +515,7 @@ class RecordForm extends Component
     public function mount()
     {
         $this->templates = Template::where('user_id', Auth::id())->get(); // Только шаблоны текущего пользователя
-        $this->availableCashRegisters =Auth::user()->availableCashRegisters;
+        $this->availableCashRegisters = Auth::user()->availableCashRegisters;
         if (Auth::user()->is_admin) {
             // Устанавливаем фильтр на все кассы (по умолчанию)
             $this->selectedCashRegisterFilter = null;
@@ -511,28 +541,28 @@ class RecordForm extends Component
     {
         // Сбрасываем все записи и начинаем фильтрацию заново
         $this->records = Record::query();
-    
+
         // Получаем доступные кассы для пользователя через связь с таблицей cash_user
         $accessibleCashRegisters = Auth::user()->availableCashRegisters;
-    
+
         // Фильтрация по доступным кассам
         if ($accessibleCashRegisters->isNotEmpty()) {
             $accessibleCashRegisterIds = $accessibleCashRegisters->modelKeys(); // Получаем массив ID доступных касс
             $this->records->whereIn('cash_id', $accessibleCashRegisterIds);
         }
-    
+
         // Фильтрация по выбранной кассе, если она указана
         if ($this->selectedCashRegisterFilter) {
             $this->records->where('cash_id', $this->selectedCashRegisterFilter);
         }
-    
+
         // Логируем выбранный фильтр кассы
         \Log::info('Filtered records by selected cash register filter: ', [$this->selectedCashRegisterFilter]);
-    
+
         // Применяем пагинацию
         $this->records = $this->records->orderBy('created_at', 'desc')->paginate(20);
     }
-    
+
     public function render()
     {
         $this->templates = Template::where('user_id', Auth::id())->get(); // Обновляем список шаблонов
