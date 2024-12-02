@@ -445,6 +445,12 @@ class RecordForm extends Component
         // Проверяем, выбрана ли дата, если нет — используем текущую дату
         $date = $this->dateFilter ?: now()->format('Y-m-d');
     
+        // Проверяем, выбрана ли касса
+        if (!$this->selectedCashRegisterFilter) {
+            session()->flash('error', 'Выберите кассу для закрытия.');
+            return;
+        }
+    
         // Проверяем, если дата в будущем — запрет закрытия
         if (Carbon::parse($date)->isFuture()) {
             session()->flash('error', 'Нельзя закрыть кассу за будущий день.');
@@ -452,17 +458,18 @@ class RecordForm extends Component
         }
     
         // Проверяем, закрыта ли касса за выбранную дату
-        if (CashRegister::whereDate('Date', $date)->exists()) {
+        if (CashRegister::where('cash_id', $this->selectedCashRegisterFilter)->whereDate('Date', $date)->exists()) {
             session()->flash('error', 'Касса уже закрыта за выбранный день.');
             return;
         }
     
-        // Рассчитываем баланс за выбранный день и кассу
+        // Рассчитываем баланс за выбранный день и выбранную кассу
         $dailyBalance = $this->calculateTotalBalance($this->selectedCashRegisterFilter, $date);
     
-        // Фиксируем баланс за выбранную дату
+        // Фиксируем баланс за выбранную дату и кассу
         CashRegister::create([
             'Date' => $date,
+            'cash_id' => $this->selectedCashRegisterFilter,
             'balance' => $dailyBalance,
         ]);
     

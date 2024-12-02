@@ -150,9 +150,20 @@
                 @endif
 
                 <button class="btn btn-success" wire:click="closeCashRegister"
-                    @if (\App\Models\CashRegister::whereDate('Date', $dateFilter ?: now()->format('Y-m-d'))->exists()) disabled @endif>
-                    {{ \App\Models\CashRegister::whereDate('Date', $dateFilter ?: now()->format('Y-m-d'))->exists() ? 'Касса закрыта' : 'Закрыть кассу' }}
+                    @if (
+                        !$selectedCashRegisterFilter ||
+                            !$dateFilter ||
+                            \App\Models\CashRegister::where('cash_id', $selectedCashRegisterFilter)->whereDate('Date', $dateFilter)->exists()) disabled @endif>
+                    {{ !$selectedCashRegisterFilter
+                        ? 'Выберите кассу для закрытия'
+                        : (!$dateFilter
+                            ? 'Выберите дату для закрытия'
+                            : (\App\Models\CashRegister::where('cash_id', $selectedCashRegisterFilter)->whereDate('Date', $dateFilter)->exists()
+                                ? 'Касса закрыта'
+                                : 'Закрыть кассу')) }}
                 </button>
+
+
             </div>
         </div>
     </div>
