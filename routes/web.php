@@ -31,6 +31,7 @@ Route::get('/register', function () {
     return redirect('/login');
 })->name('register');
 
-Route::middleware('auth')->get('/users', UserComponent::class)->name('users.index');
-Route::middleware('auth')->get('/cash', CashComponent::class)->name('cash.index');
+Route::middleware(['auth', 'admin'])->get('/users', UserComponent::class)->name('users.index');
+Route::middleware(['auth', 'admin'])->get('/cash', CashComponent::class)->name('cash.index');
+
 
