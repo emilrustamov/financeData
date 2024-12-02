@@ -12,6 +12,8 @@ class Record extends Model
 
     protected $table = 'records';
     protected $fillable = [
+        'original_amount',
+        'original_currency',
         'ArticleType',
         'ArticleDescription',
         'Amount',
@@ -28,4 +30,5 @@ class Record extends Model
         return $this->belongsTo(CashRegister::class, 'cash_id');
     }
 
+   
 }

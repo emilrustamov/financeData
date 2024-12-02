@@ -247,7 +247,7 @@
                         {{ $record->ArticleType }}
                     </td>
                     <td>{{ $record->ArticleDescription }}</td>
-                    <td>{{ number_format($record->Amount, 2, '.', ' ') }}</td>
+                    <td>{{ number_format($record->original_amount, 2, '.', ' ') }}</td>
                     <td>
                         @if ($record->Object)
                             {{ $record->Object }}
@@ -255,7 +255,7 @@
                             <span>Нет клиента</span>
                         @endif
                     </td>
-                    <td>{{ $record->Currency }}</td>
+                    <td>{{ $record->original_currency }}</td>
                     <td>{{ $record->Date }}</td>
                     <td>{{ number_format($record->ExchangeRate, 2, '.', ' ') }}</td>
                     <td>

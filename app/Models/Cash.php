@@ -11,10 +11,16 @@ class Cash extends Model
 
     protected $table = 'cash';
 
-    protected $fillable = ['title'];
+    protected $fillable = ['title', 'currency_id'];
 
     public function users()
     {
         return $this->belongsToMany(User::class, 'cash_user');
     }
+
+    public function currency()
+    {
+        return $this->belongsTo(ExchangeRate::class, 'currency_id');
+    }
+
 }

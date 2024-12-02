@@ -194,71 +194,81 @@ class RecordForm extends Component
             'date' => 'required|date',
             'exchangeRate' => 'nullable|numeric|min:0',
             'link' => 'nullable|string',
-            'selectedCashRegister' => 'required|exists:cash,id', // Обновляем проверку на кассу
+            'selectedCashRegister' => 'required|exists:cash,id', // Проверка на существующую кассу
         ];
-
+    
         if ($this->isTemplate) {
             $rules['titleTemplate'] = 'required|string|max:100';
             $rules['icon'] = 'required|string|max:255';
         }
-
+    
         $this->validate($rules);
-
+    
         // Определяем дату для записи
         $date = $this->date ?: now()->format('Y-m-d');
-
+    
         // Получаем кассу по выбранному идентификатору
-        $cashRegister = Cash::find($this->selectedCashRegister); // Ищем кассу в таблице cash
-
+        $cashRegister = Cash::find($this->selectedCashRegister);
+    
         // Если касса не найдена, выводим ошибку
         if (!$cashRegister) {
             session()->flash('error', 'Выбранная касса недоступна.');
             return;
         }
-
+    
         // Если касса закрыта за этот день, выводим ошибку
         if ($cashRegister->is_closed) {
             session()->flash('error', 'Касса за этот день уже закрыта. Невозможно выполнить операцию.');
             return;
         }
-
+    
+        // Сохраняем оригинальные данные
+        $originalAmount = $this->amount;
+        $originalCurrency = $this->currency;
+    
+        // Конвертируем сумму в манаты
+        $convertedAmount = $this->convertToBaseCurrency($originalAmount, $originalCurrency);
+    
         // Подготовка данных для записи
         $data = [
             'ArticleType' => $this->articleType,
             'ArticleDescription' => $this->articleDescription,
-            'Amount' => $this->amount,
-            'Currency' => $this->currency,
+            'Amount' => $convertedAmount, // Конвертированная сумма в манатах
+            'Currency' => 'Манат', // Валюта для расчетов
+            'original_amount' => $originalAmount, // Оригинальная сумма
+            'original_currency' => $originalCurrency, // Оригинальная валюта
             'Date' => $this->date,
             'ExchangeRate' => $this->exchangeRate ?: null,
             'Link' => $this->link,
             'Object' => $this->object,
             'cash_id' => $this->selectedCashRegister, // Привязываем запись к кассе
         ];
-
-        // Сохранение записи (или обновление шаблона)
+    
+        // Если используется шаблон, добавляем дополнительные поля
         if ($this->isTemplate) {
             $data['title_template'] = $this->titleTemplate;
             $data['icon'] = $this->icon;
             $data['user_id'] = Auth::id();
-
+    
+            // Сохраняем или обновляем шаблон
             Template::updateOrCreate(
                 ['id' => $this->recordId],
                 $data
             );
         } else {
+            // Сохраняем или обновляем запись
             Record::updateOrCreate(
                 ['id' => $this->recordId],
                 $data
             );
         }
-
+    
         // Сбрасываем форму и закрываем модальное окно
         $this->resetExcept(['defaultExchangeRates', 'templates', 'availableIcons', 'dateFilter', 'selectedCashRegisterFilter']);
         session()->flash('message', $this->recordId ? 'Запись успешно обновлена.' : 'Запись успешно добавлена.');
         $this->closeModal();
     }
-
-
+    
 
 
 
@@ -356,6 +366,30 @@ class RecordForm extends Component
         }
     }
 
+    private function convertToBaseCurrency($amount, $currency)
+    {
+        // Получаем курс валюты относительно доллара
+        $rate = ExchangeRate::where('currency', $currency)->value('rate');
+
+        if (!$rate) {
+            throw new \Exception("Курс для валюты {$currency} не найден.");
+        }
+
+        // Конвертируем сумму в доллары
+        $amountInDollars = $amount / $rate;
+
+        // Получаем курс Манатов относительно доллара
+        $baseRate = ExchangeRate::where('currency', 'Манат')->value('rate');
+
+        if (!$baseRate) {
+            throw new \Exception("Курс для Маната не найден.");
+        }
+
+        // Конвертируем из долларов в Манаты
+        return $amountInDollars * $baseRate;
+    }
+
+
 
 
     public function getDailySummary()
@@ -417,25 +451,22 @@ class RecordForm extends Component
         if ($dateFilter) {
             $queryIncome->whereDate('Date', $dateFilter);
             $queryExpense->whereDate('Date', $dateFilter);
-        } elseif ($this->filterType === 'weekly') {
-            $queryIncome->whereBetween('Date', [now()->startOfWeek(), now()->endOfWeek()]);
-            $queryExpense->whereBetween('Date', [now()->startOfWeek(), now()->endOfWeek()]);
-        } elseif ($this->filterType === 'monthly') {
-            $queryIncome->whereBetween('Date', [now()->startOfMonth(), now()->endOfMonth()]);
-            $queryExpense->whereBetween('Date', [now()->startOfMonth(), now()->endOfMonth()]);
-        } elseif ($this->filterType === 'custom' && $this->startDate && $this->endDate) {
-            $queryIncome->whereBetween('Date', [$this->startDate, $this->endDate]);
-            $queryExpense->whereBetween('Date', [$this->startDate, $this->endDate]);
         }
 
-        $income = $queryIncome->sum('Amount');
-        $expense = $queryExpense->sum('Amount');
+        $incomeRecords = $queryIncome->get();
+        $expenseRecords = $queryExpense->get();
+
+        $totalIncome = $incomeRecords->sum(function ($record) {
+            return $this->convertToBaseCurrency($record->Amount, $record->Currency);
+        });
+
+        $totalExpense = $expenseRecords->sum(function ($record) {
+            return $this->convertToBaseCurrency($record->Amount, $record->Currency);
+        });
 
         // Итоговый баланс: приходы - расходы
-        return $income - $expense;
+        return $totalIncome - $totalExpense;
     }
-
-
 
 
 
@@ -444,41 +475,41 @@ class RecordForm extends Component
     {
         // Проверяем, выбрана ли дата, если нет — используем текущую дату
         $date = $this->dateFilter ?: now()->format('Y-m-d');
-    
+
         // Проверяем, выбрана ли касса
         if (!$this->selectedCashRegisterFilter) {
             session()->flash('error', 'Выберите кассу для закрытия.');
             return;
         }
-    
+
         // Проверяем, если дата в будущем — запрет закрытия
         if (Carbon::parse($date)->isFuture()) {
             session()->flash('error', 'Нельзя закрыть кассу за будущий день.');
             return;
         }
-    
+
         // Проверяем, закрыта ли касса за выбранную дату
         if (CashRegister::where('cash_id', $this->selectedCashRegisterFilter)->whereDate('Date', $date)->exists()) {
             session()->flash('error', 'Касса уже закрыта за выбранный день.');
             return;
         }
-    
+
         // Рассчитываем баланс за выбранный день и выбранную кассу
         $dailyBalance = $this->calculateTotalBalance($this->selectedCashRegisterFilter, $date);
-    
+
         // Фиксируем баланс за выбранную дату и кассу
         CashRegister::create([
             'Date' => $date,
             'cash_id' => $this->selectedCashRegisterFilter,
             'balance' => $dailyBalance,
         ]);
-    
+
         // Обновляем общий баланс
         $this->calculateTotalBalance();
-    
+
         session()->flash('message', "Касса за {$date} успешно закрыта.");
     }
-    
+
 
 
 
