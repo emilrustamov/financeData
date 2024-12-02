@@ -23,7 +23,7 @@ class InitialBalanceSeeder extends Seeder
         // Установите начальный баланс для администратора
         CashRegister::updateOrCreate(
             ['Date' => '2000-01-01', 'user_id' => $admin->id],
-            ['balance' => 1000.00] // Укажите ваш начальный баланс
+            ['balance' => 0.0] // Укажите ваш начальный баланс
         );
 
         // Пример добавления кассы для обычного пользователя (если нужно)
@@ -38,7 +38,7 @@ class InitialBalanceSeeder extends Seeder
 
         CashRegister::updateOrCreate(
             ['Date' => now()->format('Y-m-d'), 'user_id' => $user->id],
-            ['balance' => 500.00] // Укажите баланс для обычного пользователя
+            ['balance' => 0.0] // Укажите баланс для обычного пользователя
         );
     }
 }

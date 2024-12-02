@@ -3,6 +3,7 @@
 namespace App\Livewire;
 
 use App\Models\Record;
+use App\Models\Cash;
 use Livewire\Component;
 use Illuminate\Support\Facades\Auth;
 use App\Models\ExchangeRate;
@@ -31,7 +32,7 @@ class RecordForm extends Component
     public $endDate = null;      // Для пользовательского диапазона
     public $availableCashRegisters = [];
     public $selectedCashRegister = null;
-    public $selectedCashRegisterFilter = null; // Для хранения выбранной кассы для фильтрации
+    public $selectedCashRegisterFilter; // Для хранения выбранной кассы для фильтрации
 
 
     public $availableIcons = [
@@ -67,10 +68,10 @@ class RecordForm extends Component
     public function openModal($id = null, $isTemplate = false)
     {
         // Сброс состояния
-        $this->resetExcept(['defaultExchangeRates', 'templates', 'availableIcons', 'dateFilter']);
+        $this->resetExcept(['defaultExchangeRates', 'templates', 'availableIcons', 'dateFilter', 'selectedCashRegisterFilter']);
         $this->recordId = $id;
         $this->isTemplate = $isTemplate;
-    
+
         if ($id) {
             if ($isTemplate) {
                 // Загрузка данных шаблона
@@ -85,7 +86,7 @@ class RecordForm extends Component
                 $this->exchangeRate = $template->ExchangeRate;
                 $this->link = $template->Link;
                 $this->object = $template->Object;
-                
+
                 // Для шаблона кассу не нужно выбирать, сбрасываем
                 $this->selectedCashRegister = null;
             } else {
@@ -99,7 +100,7 @@ class RecordForm extends Component
                 $this->exchangeRate = $record->ExchangeRate;
                 $this->link = $record->Link;
                 $this->object = $record->Object;
-    
+
                 // Устанавливаем выбранную кассу из записи
                 $this->selectedCashRegister = $record->cash_id;
             }
@@ -115,31 +116,42 @@ class RecordForm extends Component
             $this->object = null;
             $this->selectedCashRegister = null; // Новая запись — касса пока не выбрана
         }
-    
-        // Подгружаем доступные кассы для выбора
+
+        // Подгружаем доступные кассы для выбора через метод, учитывающий пользователя
         $this->loadAvailableCashRegisters();
-    
-        // Устанавливаем первую доступную кассу для новой записи
+
+        // Если касса не выбрана, установим первую доступную кассу
         if (!$this->selectedCashRegister && $this->availableCashRegisters->isNotEmpty()) {
             $this->selectedCashRegister = $this->availableCashRegisters->first()->id;
         }
-    
+
         // Открываем модальное окно
         $this->isModalOpen = true;
     }
-    
-    
+
 
     public function loadAvailableCashRegisters()
     {
-        if (Auth::user()->is_admin) {
-            // Администратор видит все кассы
-            $this->availableCashRegisters = CashRegister::all();
-        } else {
-            // Обычный пользователь видит только свои кассы
-            $this->availableCashRegisters = CashRegister::where('user_id', Auth::id())->get();
+        // Проверяем, авторизован ли пользователь
+        $user = Auth::user();
+
+        if (!$user) {
+            \Log::warning('User is not authenticated.');
+            return;
         }
+
+        // Если пользователь — администратор, выводим все кассы
+        if ($user->is_admin) {
+            $this->availableCashRegisters = Cash::all();  // Выводим все кассы для администратора
+        } else {
+            // Получаем кассы, к которым у пользователя есть доступ через таблицу cash_user
+            $this->availableCashRegisters = $user->availableCashRegisters;  // Используем метод модели
+        }
+
+        // Проверка и логирование
+        \Log::info('Available Cash Registers:', $this->availableCashRegisters->toArray());
     }
+
 
 
 
@@ -173,6 +185,7 @@ class RecordForm extends Component
 
     public function submit()
     {
+        // Валидация формы
         $rules = [
             'articleType' => 'required|in:Приход,Расход',
             'articleDescription' => 'nullable|string|max:255',
@@ -181,7 +194,7 @@ class RecordForm extends Component
             'date' => 'required|date',
             'exchangeRate' => 'nullable|numeric|min:0',
             'link' => 'nullable|string',
-            'selectedCashRegister' => 'required|exists:cash_register,id', // Проверка на наличие выбранной кассы
+            'selectedCashRegister' => 'required|exists:cash,id', // Обновляем проверку на кассу
         ];
 
         if ($this->isTemplate) {
@@ -191,25 +204,25 @@ class RecordForm extends Component
 
         $this->validate($rules);
 
+        // Определяем дату для записи
         $date = $this->date ?: now()->format('Y-m-d');
 
-        $cashRegister = CashRegister::find($this->selectedCashRegister);
+        // Получаем кассу по выбранному идентификатору
+        $cashRegister = Cash::find($this->selectedCashRegister); // Ищем кассу в таблице cash
 
+        // Если касса не найдена, выводим ошибку
         if (!$cashRegister) {
             session()->flash('error', 'Выбранная касса недоступна.');
             return;
         }
 
-        if ($cashRegister->Date !== $date) {
-            session()->flash('error', 'Невозможно записать операцию в кассу с другой датой.');
-            return;
-        }
-
+        // Если касса закрыта за этот день, выводим ошибку
         if ($cashRegister->is_closed) {
             session()->flash('error', 'Касса за этот день уже закрыта. Невозможно выполнить операцию.');
             return;
         }
 
+        // Подготовка данных для записи
         $data = [
             'ArticleType' => $this->articleType,
             'ArticleDescription' => $this->articleDescription,
@@ -222,8 +235,7 @@ class RecordForm extends Component
             'cash_id' => $this->selectedCashRegister, // Привязываем запись к кассе
         ];
 
-        // Отладка перед сохранением
-
+        // Сохранение записи (или обновление шаблона)
         if ($this->isTemplate) {
             $data['title_template'] = $this->titleTemplate;
             $data['icon'] = $this->icon;
@@ -240,10 +252,12 @@ class RecordForm extends Component
             );
         }
 
-        $this->resetExcept(['defaultExchangeRates', 'templates', 'availableIcons', 'dateFilter']);
+        // Сбрасываем форму и закрываем модальное окно
+        $this->resetExcept(['defaultExchangeRates', 'templates', 'availableIcons', 'dateFilter', 'selectedCashRegisterFilter']);
         session()->flash('message', $this->recordId ? 'Запись успешно обновлена.' : 'Запись успешно добавлена.');
         $this->closeModal();
     }
+
 
 
 
@@ -260,6 +274,7 @@ class RecordForm extends Component
         }
 
         $this->getDailySummary(); // Перезапускаем расчет
+        $this->calculateTotalBalance();
     }
 
 
@@ -268,7 +283,7 @@ class RecordForm extends Component
 
     public function copyRecord($id)
     {
-        $this->resetExcept(['defaultExchangeRates', 'templates', 'availableIcons', 'dateFilter']);
+        $this->resetExcept(['defaultExchangeRates', 'templates', 'availableIcons', 'dateFilter', 'selectedCashRegisterFilter']);
 
         $record = Record::findOrFail($id);
         $this->articleType = $record->ArticleType;
@@ -298,7 +313,7 @@ class RecordForm extends Component
     {
         $template = Template::where('id', $id)->where('user_id', Auth::id())->firstOrFail(); // Только свои шаблоны
 
-        $this->resetExcept(['defaultExchangeRates', 'templates', 'availableIcons', 'dateFilter']);
+        $this->resetExcept(['defaultExchangeRates', 'templates', 'availableIcons', 'dateFilter', 'selectedCashRegisterFilter']);
         $this->isTemplate = false;
         $this->articleType = $template->ArticleType;
         $this->articleDescription = $template->ArticleDescription;
@@ -318,6 +333,13 @@ class RecordForm extends Component
         $incomeQuery = Record::query();
         $expenseQuery = Record::query();
 
+        // Если фильтрация по кассе выбрана
+        if ($this->selectedCashRegisterFilter) {
+            // Фильтруем по полю cash_id, которое связано с таблицей Cash
+            $incomeQuery->where('cash_id', $this->selectedCashRegisterFilter);
+            $expenseQuery->where('cash_id', $this->selectedCashRegisterFilter);
+        }
+
         if ($this->filterType === 'daily' && $this->dateFilter) {
             $incomeQuery->whereDate('Date', $this->dateFilter);
             $expenseQuery->whereDate('Date', $this->dateFilter);
@@ -336,31 +358,55 @@ class RecordForm extends Component
         $income = $incomeQuery->where('ArticleType', 'Приход')->sum('Amount');
         $expense = $expenseQuery->where('ArticleType', 'Расход')->sum('Amount');
 
-        // Для фильтра "по дням" считаем баланс
-        $balance = $this->filterType === 'daily'
-            ? CashRegister::whereDate('Date', $this->dateFilter)->value('balance') ?? 'Не закрыта'
-            : null;
+        // Баланс за выбранный день
+        $dailyBalance = $this->calculateTotalBalance($this->selectedCashRegisterFilter, $this->dateFilter);
+
+        // Текущий итоговый баланс (без фильтрации по дате)
+        $totalBalance = $this->calculateTotalBalance($this->selectedCashRegisterFilter);
+
 
         return [
             'income' => $income,
             'expense' => $expense,
-            'balance' => $balance,
+            'balance' => $dailyBalance,
+            'totalBalance' => $totalBalance,
         ];
     }
 
-    public function calculateTotalBalance()
+
+    public function calculateTotalBalance($cashId = null, $dateFilter = null)
     {
-        // Последний закрытый баланс
-        $lastClosedBalance = CashRegister::orderBy('Date', 'desc')->value('balance') ?: 0;
+        $queryIncome = Record::query()->where('ArticleType', 'Приход');
+        $queryExpense = Record::query()->where('ArticleType', 'Расход');
 
-        // Приходы и расходы за текущий день
-        $today = now()->format('Y-m-d');
-        $incomeToday = Record::whereDate('Date', $today)->where('ArticleType', 'Приход')->sum('Amount');
-        $expenseToday = Record::whereDate('Date', $today)->where('ArticleType', 'Расход')->sum('Amount');
+        if ($cashId) {
+            $queryIncome->where('cash_id', $cashId);
+            $queryExpense->where('cash_id', $cashId);
+        }
 
-        // Итоговый баланс: закрытая касса + движения за текущий день
-        $this->totalBalance = $lastClosedBalance + $incomeToday - $expenseToday;
+        if ($dateFilter) {
+            $queryIncome->whereDate('Date', $dateFilter);
+            $queryExpense->whereDate('Date', $dateFilter);
+        } elseif ($this->filterType === 'weekly') {
+            $queryIncome->whereBetween('Date', [now()->startOfWeek(), now()->endOfWeek()]);
+            $queryExpense->whereBetween('Date', [now()->startOfWeek(), now()->endOfWeek()]);
+        } elseif ($this->filterType === 'monthly') {
+            $queryIncome->whereBetween('Date', [now()->startOfMonth(), now()->endOfMonth()]);
+            $queryExpense->whereBetween('Date', [now()->startOfMonth(), now()->endOfMonth()]);
+        } elseif ($this->filterType === 'custom' && $this->startDate && $this->endDate) {
+            $queryIncome->whereBetween('Date', [$this->startDate, $this->endDate]);
+            $queryExpense->whereBetween('Date', [$this->startDate, $this->endDate]);
+        }
+
+        $income = $queryIncome->sum('Amount');
+        $expense = $queryExpense->sum('Amount');
+
+        // Итоговый баланс: приходы - расходы
+        return $income - $expense;
     }
+
+
+
 
 
 
@@ -404,6 +450,8 @@ class RecordForm extends Component
 
 
 
+
+
     //раскоментируйте если нужны все иконки из bootstrap-icons
     // public function getAvailableIcons() 
     // {
@@ -437,30 +485,83 @@ class RecordForm extends Component
     public function mount()
     {
         $this->templates = Template::where('user_id', Auth::id())->get(); // Только шаблоны текущего пользователя
+        $this->availableCashRegisters =Auth::user()->availableCashRegisters;
+        if (Auth::user()->is_admin) {
+            // Устанавливаем фильтр на все кассы (по умолчанию)
+            $this->selectedCashRegisterFilter = null;
+        } else {
+            // Для обычных пользователей устанавливаем доступные кассы
+            $this->selectedCashRegisterFilter = Auth::user()->availableCashRegisters->pluck('id');
+        }
+
         $this->defaultExchangeRates = ExchangeRate::pluck('rate', 'currency')->toArray();
         $this->availableIcons;
         $this->calculateTotalBalance();
     }
 
+    public function updatedSelectedCashRegisterFilter($value)
+    {
+        \Log::info('Selected Cash Register Filter changed to: ' . $value);
 
+        // Обновляем фильтрацию по кассе
+        $this->applyCashRegisterFilter();
+    }
 
+    public function applyCashRegisterFilter()
+    {
+        // Сбрасываем все записи и начинаем фильтрацию заново
+        $this->records = Record::query();
+    
+        // Получаем доступные кассы для пользователя через связь с таблицей cash_user
+        $accessibleCashRegisters = Auth::user()->availableCashRegisters;
+    
+        // Фильтрация по доступным кассам
+        if ($accessibleCashRegisters->isNotEmpty()) {
+            $accessibleCashRegisterIds = $accessibleCashRegisters->modelKeys(); // Получаем массив ID доступных касс
+            $this->records->whereIn('cash_id', $accessibleCashRegisterIds);
+        }
+    
+        // Фильтрация по выбранной кассе, если она указана
+        if ($this->selectedCashRegisterFilter) {
+            $this->records->where('cash_id', $this->selectedCashRegisterFilter);
+        }
+    
+        // Логируем выбранный фильтр кассы
+        \Log::info('Filtered records by selected cash register filter: ', [$this->selectedCashRegisterFilter]);
+    
+        // Применяем пагинацию
+        $this->records = $this->records->orderBy('created_at', 'desc')->paginate(20);
+    }
+    
     public function render()
     {
         $this->templates = Template::where('user_id', Auth::id())->get(); // Обновляем список шаблонов
-    
+
         $dailySummary = $this->getDailySummary();
-    
+
         $records = Record::query();
-    
-        $accessibleCashRegisters = CashRegister::all();
-    
-        // Фильтруем записи по доступным кассам
+
+        // Получаем доступные кассы для пользователя через связь с таблицей cash_user
+        $accessibleCashRegisters = Auth::user()->availableCashRegisters;
+
+        // Проверяем, если у пользователя есть доступные кассы
         if ($accessibleCashRegisters->isNotEmpty()) {
-            $accessibleCashRegisterIds = $accessibleCashRegisters->modelKeys(); // Получаем массив ID доступных касс
+            // Получаем массив ID доступных касс
+            $accessibleCashRegisterIds = $accessibleCashRegisters->modelKeys();
+
+            // Фильтруем записи, относящиеся к этим кассам
             $records->whereIn('cash_id', $accessibleCashRegisterIds);
         }
-    
-        // Применяем фильтры по дате
+
+        // Фильтрация по выбранной кассе, если она указана
+        if ($this->selectedCashRegisterFilter) {
+            $records->where('cash_id', $this->selectedCashRegisterFilter);
+        }
+
+        // Логируем выбранный фильтр кассы
+        \Log::info('Filtered records by selected cash register filter: ', [$this->selectedCashRegisterFilter]);
+
+        // Применяем фильтрацию по дате (если указано)
         if ($this->filterType === 'daily' && $this->dateFilter) {
             $records->whereDate('Date', $this->dateFilter);
         } elseif ($this->filterType === 'weekly') {
@@ -470,9 +571,10 @@ class RecordForm extends Component
         } elseif ($this->filterType === 'custom' && $this->startDate && $this->endDate) {
             $records->whereBetween('Date', [$this->startDate, $this->endDate]);
         }
-    
+
+        // Применяем пагинацию
         $records = $records->orderBy('created_at', 'desc')->paginate(20);
-    
+
         return view('livewire.record-form', [
             'records' => $records,
             'dailySummary' => $dailySummary,
@@ -480,6 +582,7 @@ class RecordForm extends Component
             'availableCashRegisters' => $accessibleCashRegisters, // Передаем кассы в шаблон для фильтра
         ]);
     }
-    
+
+
 
 }

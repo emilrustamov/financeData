@@ -1,5 +1,6 @@
 <?php
 
+use App\Livewire\CashComponent;
 use App\Livewire\UserComponent;
 
 use Illuminate\Support\Facades\Route;
@@ -31,4 +32,5 @@ Route::get('/register', function () {
 })->name('register');
 
 Route::middleware('auth')->get('/users', UserComponent::class)->name('users.index');
+Route::middleware('auth')->get('/cash', CashComponent::class)->name('cash.index');
 

@@ -133,7 +133,7 @@
                     <div class="stat-box">
                         <h6>Текущий итоговый баланс</h6>
                         <p class="fs-4" style="color: {{ $totalBalance >= 0 ? 'green' : 'red' }}">
-                            {{ $totalBalance }} Манат
+                            {{ $dailySummary['totalBalance'] }} Манат
                         </p>
 
                     </div>
@@ -191,21 +191,28 @@
             {{ session('error') }}
         </div>
     @endif
-    <div class="mb-3">
-        @if (Auth::user()->is_admin)
-            <label for="selectCashRegisterFilter">Выберите кассу</label>
-            <select wire:model="selectedCashRegisterFilter" id="selectCashRegisterFilter" class="form-select">
+    @if (Auth::user()->is_admin)
+        <div class="mb-3">
+            <label for="selectCashRegisterFilter">Фильтр по кассе</label>
+            <select wire:model.live="selectedCashRegisterFilter" class="form-select" wire:ignore>
                 <option value="">Все кассы</option>
-                @foreach ($availableCashRegisters as $cashRegister)
-                    <option value="{{ $cashRegister->id }}">
-                        Касса за {{ \Carbon\Carbon::parse($cashRegister->Date)->format('d.m.Y') }} — 
-                        Баланс: {{ number_format($cashRegister->balance, 2, '.', ' ') }} Манат
+                @foreach ($availableCashRegisters as $cash)
+                    <option value="{{ $cash->id }}">
+                        Касса: {{ $cash->title }}
                     </option>
                 @endforeach
             </select>
-        @endif
-    </div>
-    
+
+            @error('selectedCashRegisterFilter')
+                <span class="text-danger">{{ $message }}</span>
+            @enderror
+        </div>
+    @endif
+
+
+
+
+
 
     <table class="table table-bordered">
         <thead class="table-light">
@@ -224,46 +231,43 @@
         <tbody>
             @foreach ($records as $record)
                 <tr>
-
                     <td
                         class="@if ($record->ArticleType === 'Приход') bg-success text-white @elseif ($record->ArticleType === 'Расход') bg-danger text-white @endif">
                         {{ $record->ArticleType }}
                     </td>
-
                     <td>{{ $record->ArticleDescription }}</td>
                     <td>{{ number_format($record->Amount, 2, '.', ' ') }}</td>
                     <td>
                         @if ($record->Object)
                             {{ $record->Object }}
+                        @else
+                            <span>Нет клиента</span>
+                        @endif
                     </td>
-                @else
-                    <span>Нет клиента</span>
-            @endif
-            <td>{{ $record->Currency }}</td>
-            <td>{{ $record->Date }}</td>
-            <td>{{ number_format($record->ExchangeRate, 2, '.', ' ') }}</td>
-            <td>
-                @if ($record->Link)
-                    <a href="{{ $record->Link }}" target="_blank">Ссылка</a>
-                @else
-                    <span>Нет ссылки</span>
-                @endif
-            </td>
-
-            <td>
-                @if (Auth::check() && Auth::user()->is_admin)
-                    <i class="bi bi-trash text-danger ms-3" role="button"
-                        wire:click="deleteRecord({{ $record->id }})"></i>
-                @endif
-                <i class="bi bi-pencil-square text-warning" role="button"
-                    wire:click="openModal({{ $record->id }})"></i>
-                <i class="bi bi-files ms-3 text-primary" role="button" wire:click="copyRecord({{ $record->id }})"
-                    title="Копировать"></i>
-            </td>
-
-            </tr>
+                    <td>{{ $record->Currency }}</td>
+                    <td>{{ $record->Date }}</td>
+                    <td>{{ number_format($record->ExchangeRate, 2, '.', ' ') }}</td>
+                    <td>
+                        @if ($record->Link)
+                            <a href="{{ $record->Link }}" target="_blank">Ссылка</a>
+                        @else
+                            <span>Нет ссылки</span>
+                        @endif
+                    </td>
+                    <td>
+                        @if (Auth::check() && Auth::user()->is_admin)
+                            <i class="bi bi-trash text-danger ms-3" role="button"
+                                wire:click="deleteRecord({{ $record->id }})"></i>
+                        @endif
+                        <i class="bi bi-pencil-square text-warning" role="button"
+                            wire:click="openModal({{ $record->id }})"></i>
+                        <i class="bi bi-files ms-3 text-primary" role="button"
+                            wire:click="copyRecord({{ $record->id }})" title="Копировать"></i>
+                    </td>
+                </tr>
             @endforeach
         </tbody>
+
 
 
 
@@ -322,21 +326,30 @@
                             @enderror
                         </div>
                         <div class="mb-3">
-                            <label for="cashRegister">Касса</label>
-                            <select wire:model="selectedCashRegister" id="cashRegister" class="form-select">
-                                <option value="" disabled selected>Выберите кассу</option>
-                                <!-- Добавляем значение по умолчанию -->
-                                @foreach ($availableCashRegisters as $cashRegister)
-                                    <option value="{{ $cashRegister->id }}">
-                                        Касса за {{ \Carbon\Carbon::parse($cashRegister->Date)->format('d.m.Y') }} —
-                                        Баланс: {{ number_format($cashRegister->balance, 2, '.', ' ') }} Манат
-                                    </option>
-                                @endforeach
-                            </select>
-                            @error('selectedCashRegister')
-                                <span class="text-danger">{{ $message }}</span>
-                            @enderror
+                            @if (Auth::user()->is_admin || (Auth::user()->availableCashRegisters ?? collect())->count() > 1)
+                                <label for="selectCashRegister">Выберите кассу</label>
+                                <select wire:model="selectedCashRegister" id="selectCashRegister"
+                                    class="form-select">
+                                    <option value="" disabled selected>Выберите кассу</option>
+                                    @foreach ($availableCashRegisters as $cash)
+                                        <option value="{{ $cash->id }}">
+                                            Касса: {{ $cash->title }} — Баланс:
+                                            {{ number_format($cash->balance, 2, '.', ' ') }} Манат
+                                        </option>
+                                    @endforeach
+                                </select>
+
+                                @error('selectedCashRegister')
+                                    <span class="text-danger">{{ $message }}</span>
+                                @enderror
+                            @else
+                                @if (Auth::user()->availableCashRegisters && Auth::user()->availableCashRegisters->isNotEmpty())
+                                    <input type="hidden" wire:model="selectedCashRegister"
+                                        value="{{ Auth::user()->availableCashRegisters->first()->id }}">
+                                @endif
+                            @endif
                         </div>
+
 
 
 
