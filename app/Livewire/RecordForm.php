@@ -452,12 +452,7 @@ class RecordForm extends Component
     
         $records = Record::query();
     
-        // Получаем доступные кассы для пользователя (для админа - все, для обычного пользователя - только свои)
-        if (Auth::user()->is_admin) {
-            $accessibleCashRegisters = CashRegister::all(); // Админ видит все кассы
-        } else {
-            $accessibleCashRegisters = CashRegister::where('user_id', Auth::id())->get(); // Обычный пользователь видит только свои кассы
-        }
+        $accessibleCashRegisters = CashRegister::all();
     
         // Фильтруем записи по доступным кассам
         if ($accessibleCashRegisters->isNotEmpty()) {
