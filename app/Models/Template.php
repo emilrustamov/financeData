@@ -21,15 +21,24 @@ class Template extends Model
         'ArticleDescription',
         'Amount',
         'Currency',
+        'original_amount',
+        'original_currency',
         'Date',
         'ExchangeRate',
         'Link',
         'Object',
         'user_id',
+        'cash_id',
     ];
 
     public function user()
     {
         return $this->belongsTo(User::class);
     }
+
+    public function cash()
+    {
+        return $this->belongsTo(Cash::class);
+    }
+
 }

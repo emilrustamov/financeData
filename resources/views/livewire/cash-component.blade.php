@@ -23,10 +23,14 @@
                 <tr>
                     <td>{{ $cash->id }}</td>
                     <td>{{ $cash->title }}</td>
+                    <td>{{ $cash->currency->currency ?? 'Не указано' }}</td>
+
                     <td>{{ $cash->users->pluck('name')->implode(', ') }}</td>
                     <td>
-                        <button wire:click="openModal({{ $cash->id }})" class="btn btn-warning btn-sm">Редактировать</button>
-                        <button wire:click="confirmDeleteCash({{ $cash->id }})" class="btn btn-danger btn-sm">Удалить</button>
+                        <button wire:click="openModal({{ $cash->id }})"
+                            class="btn btn-warning btn-sm">Редактировать</button>
+                        <button wire:click="confirmDeleteCash({{ $cash->id }})"
+                            class="btn btn-danger btn-sm">Удалить</button>
                     </td>
                 </tr>
             @endforeach
@@ -50,16 +54,23 @@
                             <label for="title">Название кассы</label>
                             <input type="text" id="title" class="form-control" wire:model="title" required>
                         </div>
+                        <div class="form-group">
+                            <label for="currency">Валюта</label>
+                            <select id="currency" class="form-control" wire:model="currency_id" required>
+                                <option value="">Выберите валюту</option>
+                                @foreach ($currencies as $currency)
+                                    <option value="{{ $currency->id }}">{{ $currency->currency }}</option>
+                                @endforeach
+                            </select>
+                        </div>
 
                         <div class="form-group">
                             <label for="users">Пользователи с доступом</label>
                             <div>
-                                @foreach($users as $user)
+                                @foreach ($users as $user)
                                     <div class="form-check">
-                                        <input type="checkbox" class="form-check-input" 
-                                               id="user-{{ $user->id }}" 
-                                               value="{{ $user->id }}" 
-                                               wire:model="userIds">
+                                        <input type="checkbox" class="form-check-input" id="user-{{ $user->id }}"
+                                            value="{{ $user->id }}" wire:model="userIds">
                                         <label class="form-check-label" for="user-{{ $user->id }}">
                                             {{ $user->name }}
                                         </label>
@@ -76,3 +87,11 @@
         </div>
     </div>
 </div>
+<script>
+    window.addEventListener('show-delete-confirmation', () => {
+        if (confirm('Вы уверены, что хотите удалить кассу?')) {
+            @this.call('deleteCashConfirmed');
+        }
+    });
+</script>
+

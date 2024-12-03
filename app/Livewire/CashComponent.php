@@ -1,9 +1,9 @@
 <?php
 
-
 namespace App\Livewire;
 
 use App\Models\Cash;
+use App\Models\ExchangeRate;
 use App\Models\User;
 use Livewire\Component;
 use Livewire\WithPagination;
@@ -13,10 +13,12 @@ class CashComponent extends Component
     use WithPagination;
 
     public $title, $cashId, $userIds = [];
+    public $currency_id; // Поле для хранения выбранной валюты
     public $isModalOpen = false;
 
     protected $rules = [
         'title' => 'required|string|max:255',
+        'currency_id' => 'required|exists:exchange_rates,id', // Проверка существования валюты
         'userIds' => 'array',
     ];
 
@@ -30,6 +32,7 @@ class CashComponent extends Component
         if ($id) {
             $cash = Cash::findOrFail($id);
             $this->title = $cash->title;
+            $this->currency_id = $cash->currency_id; // Загружаем валюту кассы
             $this->userIds = $cash->users->pluck('id')->toArray();
         }
 
@@ -46,6 +49,7 @@ class CashComponent extends Component
     {
         $this->title = '';
         $this->cashId = null;
+        $this->currency_id = null;
         $this->userIds = [];
     }
 
@@ -53,14 +57,21 @@ class CashComponent extends Component
     {
         $validatedData = $this->validate([
             'title' => 'required|string|max:255',
+            'currency_id' => 'required|exists:exchange_rates,id', // Проверка существования валюты
             'userIds' => 'array',
         ]);
 
         if ($this->cashId) {
             $cash = Cash::findOrFail($this->cashId);
-            $cash->update(['title' => $this->title]);
+            $cash->update([
+                'title' => $this->title,
+                'currency_id' => $this->currency_id, // Сохраняем валюту
+            ]);
         } else {
-            $cash = Cash::create(['title' => $this->title]);
+            $cash = Cash::create([
+                'title' => $this->title,
+                'currency_id' => $this->currency_id, // Сохраняем валюту
+            ]);
         }
 
         $cash->users()->sync($this->userIds);
@@ -90,6 +101,7 @@ class CashComponent extends Component
         return view('livewire.cash-component', [
             'cashes' => Cash::paginate(10),
             'users' => User::all(),
+            'currencies' => ExchangeRate::all(), // Передаем список валют для выбора
         ]);
     }
 }

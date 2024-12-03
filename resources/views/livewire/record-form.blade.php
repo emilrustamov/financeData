@@ -390,18 +390,21 @@
                             @enderror
                         </div>
 
-                        <div class="mb-3">
-                            <select wire:model.live="currency" id="currency" class="form-select">
-                                <option value="">Выберите валюту</option>
-                                <option value="Манат">Манат</option>
-                                <option value="Доллар">Доллар</option>
-                                <option value="Рубль">Рубль</option>
-                                <option value="Юань">Юань</option>
-                            </select>
-                            @error('currency')
-                                <span class="text-danger">{{ $message }}</span>
-                            @enderror
-                        </div>
+                        @if (!$singleCurrency)
+                            <div class="mb-3">
+                                <label for="currency">Выберите валюту</label>
+                                <select wire:model.live="currency" id="currency" class="form-select">
+                                    <option value="">Выберите валюту</option>
+                                    <option value="Манат">Манат</option>
+                                    <option value="Доллар">Доллар</option>
+                                    <option value="Рубль">Рубль</option>
+                                    <option value="Юань">Юань</option>
+                                </select>
+                                @error('currency')
+                                    <span class="text-danger">{{ $message }}</span>
+                                @enderror
+                            </div>
+                        @endif
 
                         <div class="mb-3">
                             <input type="text" wire:model.live="exchangeRate" id="exchangeRate"
