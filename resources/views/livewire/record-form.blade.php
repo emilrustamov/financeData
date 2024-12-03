@@ -128,14 +128,12 @@
                     </div>
                 </div>
 
-
                 <div class="col-3">
                     <div class="stat-box">
                         <h6>Текущий итоговый баланс</h6>
-                        <p class="fs-4" style="color: {{ $totalBalance >= 0 ? 'green' : 'red' }}">
+                        <p class="fs-4" style="color: {{ $dailySummary['totalBalance'] >= 0 ? 'green' : 'red' }}">
                             {{ $dailySummary['totalBalance'] }} Манат
                         </p>
-
                     </div>
                 </div>
                 @if ($showBalance)
@@ -162,9 +160,8 @@
                                 ? 'Касса закрыта'
                                 : 'Закрыть кассу')) }}
                 </button>
-
-
             </div>
+
         </div>
     </div>
     <script>

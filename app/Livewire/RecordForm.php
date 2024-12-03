@@ -111,7 +111,13 @@ class RecordForm extends Component
             $this->exchangeRate = null;
             $this->link = null;
             $this->object = null;
-            $this->selectedCashRegister = null;
+            // Устанавливаем первую доступную кассу как выбранную
+            $this->loadAvailableCashRegisters();
+            if ($this->availableCashRegisters->isNotEmpty()) {
+                $this->selectedCashRegister = $this->availableCashRegisters->first()->id;
+            } else {
+                $this->selectedCashRegister = null; // Если касс нет
+            }
         }
 
         $this->loadAvailableCashRegisters();
@@ -414,7 +420,6 @@ class RecordForm extends Component
 
 
 
-
     public function getDailySummary()
     {
         $incomeQuery = Record::query();
@@ -422,7 +427,6 @@ class RecordForm extends Component
 
         // Если фильтрация по кассе выбрана
         if ($this->selectedCashRegisterFilter) {
-            // Фильтруем по полю cash_id, которое связано с таблицей Cash
             $incomeQuery->where('cash_id', $this->selectedCashRegisterFilter);
             $expenseQuery->where('cash_id', $this->selectedCashRegisterFilter);
         }
@@ -450,7 +454,6 @@ class RecordForm extends Component
 
         // Текущий итоговый баланс (без фильтрации по дате)
         $totalBalance = $this->calculateTotalBalance($this->selectedCashRegisterFilter);
-
 
         return [
             'income' => $income,
@@ -489,7 +492,6 @@ class RecordForm extends Component
 
         return $totalIncome - $totalExpense; // Итоговый баланс
     }
-
 
 
 
