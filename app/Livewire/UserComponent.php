@@ -11,13 +11,14 @@ class UserComponent extends Component
 {
     use WithPagination;
 
-    public $name, $email, $password, $role, $userId;
+    public $name, $email, $password, $is_admin = 0, $userId;
     public $isModalOpen = false;
 
     protected $rules = [
         'name' => 'required|string|max:255',
         'email' => 'required|email|unique:users,email',
         'password' => 'nullable|string|min:6',
+        'is_admin' => 'required|boolean',
     ];
 
     protected $listeners = ['deleteUserConfirmed'];
@@ -31,6 +32,7 @@ class UserComponent extends Component
             $user = User::findOrFail($id);
             $this->name = $user->name;
             $this->email = $user->email;
+            $this->is_admin = $user->is_admin; // Загружаем текущий статус админа
         }
 
         $this->isModalOpen = true;
@@ -47,6 +49,7 @@ class UserComponent extends Component
         $this->name = '';
         $this->email = '';
         $this->password = '';
+        $this->is_admin = 0;
         $this->userId = null;
     }
 
@@ -56,6 +59,7 @@ class UserComponent extends Component
             'name' => 'required|string|max:255',
             'email' => 'required|email|unique:users,email,' . $this->userId,
             'password' => $this->userId ? 'nullable|string|min:6' : 'required|string|min:6',
+            'is_admin' => 'required|boolean',
         ]);
 
         if ($this->userId) {
@@ -64,12 +68,14 @@ class UserComponent extends Component
                 'name' => $this->name,
                 'email' => $this->email,
                 'password' => $this->password ? Hash::make($this->password) : null,
+                'is_admin' => $this->is_admin,
             ]));
         } else {
             User::create([
                 'name' => $this->name,
                 'email' => $this->email,
                 'password' => Hash::make($this->password),
+                'is_admin' => $this->is_admin,
             ]);
         }
 

@@ -22,6 +22,7 @@ class User extends Authenticatable
         'email',
         'password',
         'role',
+        'is_admin',
     ];
 
     /**
@@ -50,8 +51,8 @@ class User extends Authenticatable
     }
 
     public function availableCashRegisters()
-{
-    return $this->belongsToMany(Cash::class, 'cash_user', 'user_id', 'cash_id');
-}
+    {
+        return $this->belongsToMany(Cash::class, 'cash_user', 'user_id', 'cash_id');
+    }
 
 }

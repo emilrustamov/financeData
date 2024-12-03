@@ -17,6 +17,7 @@
                 <th>ID</th>
                 <th>Имя</th>
                 <th>Email</th>
+                <th>Роль</th>
                 <th>Действия</th>
             </tr>
         </thead>
@@ -26,14 +27,18 @@
                     <td>{{ $user->id }}</td>
                     <td>{{ $user->name }}</td>
                     <td>{{ $user->email }}</td>
+                    <td>{{ $user->is_admin ? 'Администратор' : 'Пользователь' }}</td>
                     <td>
-                        <button class="btn btn-sm btn-primary" wire:click="openModal({{ $user->id }})">Редактировать</button>
-                        <button class="btn btn-sm btn-danger" wire:click="confirmDeleteUser({{ $user->id }})">Удалить</button>
+                        <button class="btn btn-sm btn-primary"
+                            wire:click="openModal({{ $user->id }})">Редактировать</button>
+                        <button class="btn btn-sm btn-danger"
+                            wire:click="confirmDeleteUser({{ $user->id }})">Удалить</button>
                     </td>
                 </tr>
             @endforeach
         </tbody>
     </table>
+
 
     <div class="mt-3">
         {{ $users->links() }}
@@ -45,7 +50,8 @@
             <div class="modal-dialog">
                 <div class="modal-content">
                     <div class="modal-header">
-                        <h5 class="modal-title">{{ $userId ? 'Редактировать пользователя' : 'Создать пользователя' }}</h5>
+                        <h5 class="modal-title">{{ $userId ? 'Редактировать пользователя' : 'Создать пользователя' }}
+                        </h5>
                         <button type="button" class="btn-close" wire:click="closeModal"></button>
                     </div>
                     <div class="modal-body">
@@ -53,20 +59,42 @@
                             <div class="mb-3">
                                 <label for="name" class="form-label">Имя</label>
                                 <input type="text" id="name" wire:model.defer="name" class="form-control">
-                                @error('name') <span class="text-danger">{{ $message }}</span> @enderror
+                                @error('name')
+                                    <span class="text-danger">{{ $message }}</span>
+                                @enderror
                             </div>
                             <div class="mb-3">
                                 <label for="email" class="form-label">Email</label>
                                 <input type="email" id="email" wire:model.defer="email" class="form-control">
-                                @error('email') <span class="text-danger">{{ $message }}</span> @enderror
+                                @error('email')
+                                    <span class="text-danger">{{ $message }}</span>
+                                @enderror
                             </div>
                             <div class="mb-3">
                                 <label for="password" class="form-label">Пароль</label>
                                 <input type="password" id="password" wire:model.defer="password" class="form-control">
-                                @error('password') <span class="text-danger">{{ $message }}</span> @enderror
+                                @error('password')
+                                    <span class="text-danger">{{ $message }}</span>
+                                @enderror
                             </div>
+                            <div class="mb-3">
+                                <label class="form-label">Роль</label>
+                                <div>
+                                    <label class="me-3">
+                                        <input type="radio" wire:model.defer="is_admin" value="0"> Пользователь
+                                    </label>
+                                    <label>
+                                        <input type="radio" wire:model.defer="is_admin" value="1"> Администратор
+                                    </label>
+                                </div>
+                                @error('is_admin')
+                                    <span class="text-danger">{{ $message }}</span>
+                                @enderror
+                            </div>
+
                             <div class="d-flex justify-content-end">
-                                <button type="button" class="btn btn-secondary me-2" wire:click="closeModal">Отмена</button>
+                                <button type="button" class="btn btn-secondary me-2"
+                                    wire:click="closeModal">Отмена</button>
                                 <button type="submit" class="btn btn-primary">Сохранить</button>
                             </div>
                         </form>

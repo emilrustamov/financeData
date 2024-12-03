@@ -118,21 +118,20 @@
                 <div class="col-3">
                     <div class="stat-box">
                         <h6>Приход</h6>
-                        <p class="text-success fs-4">{{ $dailySummary['income'] }} Манат</p>
+                        <p class="text-success fs-4">{{ $dailySummary['income'] }} {{ $dailySummary['currency'] }}</p>
                     </div>
                 </div>
                 <div class="col-3">
                     <div class="stat-box">
                         <h6>Расход</h6>
-                        <p class="text-danger fs-4">{{ $dailySummary['expense'] }} Манат</p>
+                        <p class="text-danger fs-4">{{ $dailySummary['expense'] }} {{ $dailySummary['currency'] }}</p>
                     </div>
                 </div>
-
                 <div class="col-3">
                     <div class="stat-box">
                         <h6>Текущий итоговый баланс</h6>
                         <p class="fs-4" style="color: {{ $dailySummary['totalBalance'] >= 0 ? 'green' : 'red' }}">
-                            {{ $dailySummary['totalBalance'] }} Манат
+                            {{ number_format($dailySummary['totalBalance'], 1) }} {{ $dailySummary['currency'] }}
                         </p>
                     </div>
                 </div>
@@ -140,8 +139,9 @@
                     <div class="col-3">
                         <div class="stat-box">
                             <h6>Баланс за выбранный день</h6>
-                            <p class="text-primary fs-4">
-                                {{ $dailySummary['balance'] }} Манат
+                            <p class="fs-4"
+                                style="color: {{ $dailySummary['totalBalance'] >= 0 ? 'green' : 'red' }}">
+                                {{ number_format($dailySummary['balance'], 1) }} {{ $dailySummary['currency'] }}
                             </p>
                         </div>
                     </div>
@@ -264,10 +264,19 @@
                     </td>
                     <td>
                         @if (Auth::check() && Auth::user()->is_admin)
-                            <i class="bi bi-trash text-danger ms-3" role="button"
-                                wire:click="deleteRecord({{ $record->id }})"></i>
+                            @php
+                                $isCashClosed = \App\Models\CashRegister::where('cash_id', $record->cash_id)
+                                    ->whereDate('Date', $record->Date)
+                                    ->exists();
+                            @endphp
+
+                            @if (!$isCashClosed)
+                                <i class="bi bi-trash text-danger ms-3" role="button"
+                                    wire:click="deleteRecord({{ $record->id }})" ></i>
+                            @endif
                         @endif
-                        <i class="bi bi-pencil-square text-warning" role="button"
+
+                        <i class="bi bi-pencil-square ms-3 text-warning" role="button"
                             wire:click="openModal({{ $record->id }})"></i>
                         <i class="bi bi-files ms-3 text-primary" role="button"
                             wire:click="copyRecord({{ $record->id }})" title="Копировать"></i>

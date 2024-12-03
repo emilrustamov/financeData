@@ -88,7 +88,7 @@ class RecordForm extends Component
                 $this->object = $template->Object;
 
                 // Устанавливаем кассу из шаблона
-                $this->selectedCashRegister = $template->cash_id;
+                $this->selectedCashRegister = $template->cash_id;  // Сохраняем кассу из шаблона
             } else {
                 $record = Record::findOrFail($id);
                 $this->articleType = $record->ArticleType;
@@ -135,15 +135,15 @@ class RecordForm extends Component
             return;
         }
 
-        // Если пользователь — администратор, выводим все кассы
-        if ($user->is_admin) {
+        if (Auth::user()->is_admin) {
+            // Администратор видит все кассы
             $this->availableCashRegisters = Cash::all();
         } else {
-            // Получаем доступные кассы для пользователя
-            $this->availableCashRegisters = $user->availableCashRegisters;
+            // Обычный пользователь видит только доступные кассы
+            $this->availableCashRegisters = Auth::user()->availableCashRegisters;
         }
 
-        // Если доступна только одна касса, задаем валюту этой кассы
+        // Если доступна только одна касса, задаем её валюту
         if ($this->availableCashRegisters->count() === 1) {
             $this->singleCurrency = $this->availableCashRegisters->first()->currency->currency;
             $this->currency = $this->singleCurrency; // Устанавливаем валюту автоматически
@@ -151,8 +151,6 @@ class RecordForm extends Component
             $this->singleCurrency = null; // Если касс больше одной, сбрасываем значение
         }
     }
-
-
 
 
 
@@ -201,96 +199,80 @@ class RecordForm extends Component
             $rules['titleTemplate'] = 'required|string|max:100';
             $rules['icon'] = 'required|string|max:255';
         } else {
-            $rules['selectedCashRegister'] = 'required|exists:cash,id'; // Проверка существующей кассы только для записей
+            $rules['selectedCashRegister'] = 'required|exists:cash,id';
         }
 
         $this->validate($rules);
 
-        // Если пользователь создаёт шаблон, проверяем кассу
-        if ($this->isTemplate) {
-            if (!$this->selectedCashRegister) {
-                $accessibleCashes = Auth::user()->availableCashRegisters;
+        // Если касса не выбрана и пользователь не администратор
+        if (!$this->selectedCashRegister && !Auth::user()->is_admin) {
+            session()->flash('error', 'Выберите кассу.');
+            return;
+        }
 
-                // Если у пользователя есть доступ только к одной кассе, автоматически выбираем её
-                if ($accessibleCashes->count() === 1) {
-                    $this->selectedCashRegister = $accessibleCashes->first()->id;
-                } else {
-                    session()->flash('error', 'Выберите кассу для шаблона.');
-                    return;
-                }
+        // Устанавливаем дату
+        $date = $this->date ?: now()->format('Y-m-d');
+
+        // Получаем кассу, если выбрана
+        $cashRegister = $this->selectedCashRegister ? Cash::find($this->selectedCashRegister) : null;
+
+        // Если касса выбрана, проверяем её валюту и закрытие
+        if ($cashRegister) {
+            // Проверка на соответствие валюты записи валюте кассы
+            if ($this->currency !== $cashRegister->currency->currency) {
+                session()->flash('error', "Валюта записи ({$this->currency}) должна совпадать с валютой кассы ({$cashRegister->currency->currency}).");
+                return;
+            }
+
+            // Проверка, закрыта ли касса на указанную дату
+            if (CashRegister::where('cash_id', $this->selectedCashRegister)->whereDate('Date', $date)->exists()) {
+                session()->flash('error', 'Касса уже закрыта за указанную дату. Изменения невозможны.');
+                return;
             }
         }
 
-        // Определяем текущую дату, если дата не указана
-        $date = $this->date ?: now()->format('Y-m-d');
-
-        // Получаем кассу по выбранному идентификатору
-        $cashRegister = Cash::find($this->selectedCashRegister);
-
-        if (!$cashRegister) {
-            session()->flash('error', 'Выбранная касса недоступна.');
-            return;
-        }
-
-        // Проверяем, соответствует ли валюта записи валюте кассы
-        $cashCurrency = $cashRegister->currency->currency;
-        if ($this->currency !== $cashCurrency) {
-            session()->flash('error', "Валюта записи ({$this->currency}) должна совпадать с валютой кассы ({$cashCurrency}).");
-            return;
-        }
-
-        // Проверяем, если касса закрыта на выбранную дату
-        if (CashRegister::where('cash_id', $this->selectedCashRegister)->whereDate('Date', $date)->exists()) {
-            session()->flash('error', 'Касса уже закрыта за указанную дату. Изменения невозможны.');
-            return;
-        }
-
-        // Сохраняем оригинальные данные
+        // Конвертация суммы
         $originalAmount = $this->amount;
         $originalCurrency = $this->currency;
+        $convertedAmount = $originalAmount;
 
-        // Конвертируем сумму в Манаты для расчётов баланса
-        try {
-            $convertedAmount = $this->convertToBaseCurrency($originalAmount, $originalCurrency);
-        } catch (\Exception $e) {
-            session()->flash('error', $e->getMessage());
-            return;
+        if ($originalCurrency !== 'Манат') {
+            try {
+                $convertedAmount = $this->convertToBaseCurrency($originalAmount, $originalCurrency);
+            } catch (\Exception $e) {
+                session()->flash('error', $e->getMessage());
+                return;
+            }
         }
 
-        // Подготовка данных для записи
+        // Подготовка данных для сохранения
         $data = [
             'ArticleType' => $this->articleType,
             'ArticleDescription' => $this->articleDescription,
-            'Amount' => $convertedAmount, // Конвертированная сумма в Манатах
-            'Currency' => 'Манат', // Основная валюта для расчётов
-            'original_amount' => $originalAmount, // Оригинальная сумма
-            'original_currency' => $originalCurrency, // Оригинальная валюта
-            'Date' => $this->date,
+            'Amount' => $convertedAmount,
+            'Currency' => $originalCurrency,
+            'original_amount' => $originalAmount,
+            'original_currency' => $originalCurrency,
+            'Date' => $date,
             'ExchangeRate' => $this->exchangeRate ?: null,
             'Link' => $this->link,
             'Object' => $this->object,
-            'cash_id' => $this->selectedCashRegister, // Привязка к кассе
+            'cash_id' => $this->selectedCashRegister,
         ];
 
         if ($this->isTemplate) {
-            // Если сохраняем как шаблон
+            // Сохранение шаблона
             $data['title_template'] = $this->titleTemplate;
             $data['icon'] = $this->icon;
             $data['user_id'] = Auth::id();
 
-            Template::updateOrCreate(
-                ['id' => $this->recordId],
-                $data
-            );
+            Template::updateOrCreate(['id' => $this->recordId], $data);
         } else {
-            // Сохраняем или обновляем запись
-            Record::updateOrCreate(
-                ['id' => $this->recordId],
-                $data
-            );
+            // Сохранение записи
+            Record::updateOrCreate(['id' => $this->recordId], $data);
         }
 
-        // Сбрасываем форму после успешного сохранения
+        // Очистка формы после сохранения
         $this->resetExcept([
             'defaultExchangeRates',
             'templates',
@@ -361,12 +343,25 @@ class RecordForm extends Component
     }
 
 
+    public function confirmDeleteRecord($id)
+    {
+        // Показываем модальное окно подтверждения с помощью Livewire.
+        // Используем событие для фронта.
+        $this->dispatch('show-delete-confirmation', ['recordId' => $id]);
+    }
+
+
     public function applyTemplate($id)
     {
         $template = Template::where('id', $id)->where('user_id', Auth::id())->firstOrFail();
 
+        // Сброс всех полей, которые не нужны
         $this->resetExcept(['defaultExchangeRates', 'templates', 'availableIcons', 'dateFilter', 'selectedCashRegisterFilter']);
         $this->isTemplate = false;
+
+        // Заполнение полей шаблона
+        $this->titleTemplate = $template->title_template;
+        $this->icon = $template->icon;
         $this->articleType = $template->ArticleType;
         $this->articleDescription = $template->ArticleDescription;
         $this->amount = $template->original_amount; // Оригинальная сумма
@@ -377,22 +372,19 @@ class RecordForm extends Component
         $this->object = $template->Object;
 
         // Устанавливаем кассу из шаблона
-        $accessibleCashRegisterIds = auth()->user()->availableCashRegisters->pluck('id')->toArray();
-        $this->availableCashRegisters = Cash::whereIn('id', $accessibleCashRegisterIds)->get();
+        $this->selectedCashRegister = $template->cash_id;
 
-        if (in_array($template->cash_id, $accessibleCashRegisterIds)) {
-            $this->selectedCashRegister = $template->cash_id;
-        } else {
+        // Загружаем доступные кассы для пользователя
+        $this->loadAvailableCashRegisters();
+
+        // Проверяем, доступна ли касса из шаблона для текущего пользователя
+        if (!$this->availableCashRegisters->pluck('id')->contains($this->selectedCashRegister)) {
             $this->selectedCashRegister = $this->availableCashRegisters->first()->id ?? null;
-
-            if (!$this->selectedCashRegister) {
-                session()->flash('error', 'Касса шаблона недоступна. Выберите другую кассу.');
-            }
         }
 
+        // Открываем модалку
         $this->isModalOpen = true;
     }
-
 
 
     private function convertToBaseCurrency($amount, $currency)
@@ -422,44 +414,75 @@ class RecordForm extends Component
 
     public function getDailySummary()
     {
-        $incomeQuery = Record::query();
-        $expenseQuery = Record::query();
+        // Создаём запросы для прихода и расхода
+        $incomeQuery = Record::query()->where('ArticleType', 'Приход');
+        $expenseQuery = Record::query()->where('ArticleType', 'Расход');
 
-        // Если фильтрация по кассе выбрана
-        if ($this->selectedCashRegisterFilter) {
-            $incomeQuery->where('cash_id', $this->selectedCashRegisterFilter);
-            $expenseQuery->where('cash_id', $this->selectedCashRegisterFilter);
+        $singleCashMode = $this->selectedCashRegisterFilter !== null;
+
+        // Фильтрация по кассе
+        if ($singleCashMode) {
+            $cash = Cash::find($this->selectedCashRegisterFilter);
+
+            if ($cash) {
+                $currency = $cash->currency->currency;
+
+                // Приходы и расходы за выбранный день
+                if ($this->dateFilter) {
+                    $incomeQuery->where('cash_id', $this->selectedCashRegisterFilter)
+                        ->whereDate('Date', $this->dateFilter);
+                    $expenseQuery->where('cash_id', $this->selectedCashRegisterFilter)
+                        ->whereDate('Date', $this->dateFilter);
+                } else {
+                    $incomeQuery->where('cash_id', $this->selectedCashRegisterFilter);
+                    $expenseQuery->where('cash_id', $this->selectedCashRegisterFilter);
+                }
+
+                $dailyIncome = $incomeQuery->sum('original_amount');
+                $dailyExpense = $expenseQuery->sum('original_amount');
+                $dailyBalance = $dailyIncome - $dailyExpense;
+
+                // Итоговый баланс для выбранной кассы
+                $totalIncome = Record::where('cash_id', $this->selectedCashRegisterFilter)
+                    ->where('ArticleType', 'Приход')
+                    ->sum('original_amount');
+                $totalExpense = Record::where('cash_id', $this->selectedCashRegisterFilter)
+                    ->where('ArticleType', 'Расход')
+                    ->sum('original_amount');
+                $totalBalance = $totalIncome - $totalExpense;
+
+                return [
+                    'income' => $dailyIncome,
+                    'expense' => $dailyExpense,
+                    'balance' => $dailyBalance,
+                    'totalBalance' => $totalBalance,
+                    'currency' => $currency,
+                ];
+            }
         }
 
-        if ($this->filterType === 'daily' && $this->dateFilter) {
+        // Если все кассы выбраны
+        $currency = 'Манат'; // Базовая валюта
+        if ($this->dateFilter) {
             $incomeQuery->whereDate('Date', $this->dateFilter);
             $expenseQuery->whereDate('Date', $this->dateFilter);
-        } elseif ($this->filterType === 'weekly') {
-            $incomeQuery->whereBetween('Date', [now()->startOfWeek(), now()->endOfWeek()]);
-            $expenseQuery->whereBetween('Date', [now()->startOfWeek(), now()->endOfWeek()]);
-        } elseif ($this->filterType === 'monthly') {
-            $incomeQuery->whereBetween('Date', [now()->startOfMonth(), now()->endOfMonth()]);
-            $expenseQuery->whereBetween('Date', [now()->startOfMonth(), now()->endOfMonth()]);
-        } elseif ($this->filterType === 'custom' && $this->startDate && $this->endDate) {
-            $incomeQuery->whereBetween('Date', [$this->startDate, $this->endDate]);
-            $expenseQuery->whereBetween('Date', [$this->startDate, $this->endDate]);
         }
 
-        // Считаем доходы и расходы
-        $income = $incomeQuery->where('ArticleType', 'Приход')->sum('Amount');
-        $expense = $expenseQuery->where('ArticleType', 'Расход')->sum('Amount');
+        $dailyIncome = $incomeQuery->sum('Amount');
+        $dailyExpense = $expenseQuery->sum('Amount');
+        $dailyBalance = $dailyIncome - $dailyExpense;
 
-        // Баланс за выбранный день
-        $dailyBalance = $this->calculateTotalBalance($this->selectedCashRegisterFilter, $this->dateFilter);
-
-        // Текущий итоговый баланс (без фильтрации по дате)
-        $totalBalance = $this->calculateTotalBalance($this->selectedCashRegisterFilter);
+        // Итоговый баланс для всех касс
+        $totalIncome = Record::where('ArticleType', 'Приход')->sum('Amount');
+        $totalExpense = Record::where('ArticleType', 'Расход')->sum('Amount');
+        $totalBalance = $totalIncome - $totalExpense;
 
         return [
-            'income' => $income,
-            'expense' => $expense,
+            'income' => $dailyIncome,
+            'expense' => $dailyExpense,
             'balance' => $dailyBalance,
             'totalBalance' => $totalBalance,
+            'currency' => $currency,
         ];
     }
 
@@ -472,6 +495,19 @@ class RecordForm extends Component
         if ($cashId) {
             $queryIncome->where('cash_id', $cashId);
             $queryExpense->where('cash_id', $cashId);
+
+            $cash = Cash::find($cashId);
+            if ($cash) {
+                $currency = $cash->currency->currency;
+
+                $totalIncome = $queryIncome->sum('original_amount');
+                $totalExpense = $queryExpense->sum('original_amount');
+
+                return [
+                    'total' => $totalIncome - $totalExpense,
+                    'currency' => $currency,
+                ];
+            }
         }
 
         if ($dateFilter) {
@@ -479,18 +515,13 @@ class RecordForm extends Component
             $queryExpense->whereDate('Date', $dateFilter);
         }
 
-        $incomeRecords = $queryIncome->get();
-        $expenseRecords = $queryExpense->get();
+        $totalIncome = $queryIncome->sum('Amount');
+        $totalExpense = $queryExpense->sum('Amount');
 
-        $totalIncome = $incomeRecords->sum(function ($record) {
-            return $this->convertToBaseCurrency($record->Amount, $record->Currency);
-        });
-
-        $totalExpense = $expenseRecords->sum(function ($record) {
-            return $this->convertToBaseCurrency($record->Amount, $record->Currency);
-        });
-
-        return $totalIncome - $totalExpense; // Итоговый баланс
+        return [
+            'total' => $totalIncome - $totalExpense,
+            'currency' => 'Манат',
+        ];
     }
 
 
@@ -519,13 +550,14 @@ class RecordForm extends Component
         }
 
         // Рассчитываем баланс за выбранный день и выбранную кассу
-        $dailyBalance = $this->calculateTotalBalance($this->selectedCashRegisterFilter, $date);
+        $dailySummary = $this->getDailySummary(); // Получаем полный расчет
+        $dailyBalance = $dailySummary['balance'] ?? 0; // Извлекаем только числовое значение баланса
 
         // Фиксируем баланс за выбранную дату и кассу
         CashRegister::create([
             'Date' => $date,
             'cash_id' => $this->selectedCashRegisterFilter,
-            'balance' => $dailyBalance,
+            'balance' => $dailyBalance, // Указываем только числовое значение
         ]);
 
         // Обновляем общий баланс
@@ -533,9 +565,6 @@ class RecordForm extends Component
 
         session()->flash('message', "Касса за {$date} успешно закрыта.");
     }
-
-
-
 
 
 
@@ -574,8 +603,13 @@ class RecordForm extends Component
         // Загружаем шаблоны текущего пользователя
         $this->templates = Template::where('user_id', Auth::id())->get();
 
-        // Загружаем доступные кассы для пользователя
-        $this->availableCashRegisters = Auth::user()->availableCashRegisters;
+        if (Auth::user()->is_admin) {
+            // Администратор видит все кассы
+            $this->availableCashRegisters = Cash::all();
+        } else {
+            // Обычный пользователь видит только доступные кассы
+            $this->availableCashRegisters = Auth::user()->availableCashRegisters;
+        }
 
         // Проверяем, является ли пользователь администратором
         if (Auth::user()->is_admin) {
@@ -584,26 +618,23 @@ class RecordForm extends Component
             $this->singleCurrency = null; // Админ может видеть все валюты
         } else {
             // Для обычных пользователей устанавливаем доступные кассы
-            $this->selectedCashRegisterFilter = $this->availableCashRegisters->pluck('id');
-
-            // Если доступна только одна касса, автоматически устанавливаем валюту
             if ($this->availableCashRegisters->count() === 1) {
-                $this->singleCurrency = $this->availableCashRegisters->first()->currency->currency;
-                $this->currency = $this->singleCurrency; // Задаем валюту
+                $singleCash = $this->availableCashRegisters->first(); // Получаем объект первой кассы
+                $this->selectedCashRegisterFilter = $singleCash->id; // Устанавливаем фильтр
+                $this->singleCurrency = $singleCash->currency->currency; // Устанавливаем валюту этой кассы
             } else {
-                $this->singleCurrency = null; // Если касс больше одной, валюту не фиксируем
+                $this->selectedCashRegisterFilter = null; // Если несколько касс, сбрасываем фильтр
+                $this->singleCurrency = null; // Сбрасываем валюту
             }
         }
 
         // Загружаем курсы валют
         $this->defaultExchangeRates = ExchangeRate::pluck('rate', 'currency')->toArray();
 
-        // Инициализация доступных иконок
-        $this->availableIcons;
-
         // Рассчитываем общий баланс
         $this->calculateTotalBalance();
     }
+
 
 
     public function updatedSelectedCashRegisterFilter($value)
@@ -619,18 +650,25 @@ class RecordForm extends Component
         // Сбрасываем все записи и начинаем фильтрацию заново
         $this->records = Record::query();
 
-        // Получаем доступные кассы для пользователя через связь с таблицей cash_user
-        $accessibleCashRegisters = Auth::user()->availableCashRegisters;
+        if (Auth::user()->is_admin) {
+            // Если пользователь — администратор
+            if ($this->selectedCashRegisterFilter) {
+                // Фильтрация по выбранной кассе, если указана
+                $this->records->where('cash_id', $this->selectedCashRegisterFilter);
+            }
+        } else {
+            // Для обычных пользователей — доступные кассы
+            $accessibleCashRegisters = Auth::user()->availableCashRegisters;
 
-        // Фильтрация по доступным кассам
-        if ($accessibleCashRegisters->isNotEmpty()) {
-            $accessibleCashRegisterIds = $accessibleCashRegisters->modelKeys(); // Получаем массив ID доступных касс
-            $this->records->whereIn('cash_id', $accessibleCashRegisterIds);
-        }
+            if ($accessibleCashRegisters->isNotEmpty()) {
+                $accessibleCashRegisterIds = $accessibleCashRegisters->modelKeys(); // Получаем массив ID доступных касс
+                $this->records->whereIn('cash_id', $accessibleCashRegisterIds);
 
-        // Фильтрация по выбранной кассе, если она указана
-        if ($this->selectedCashRegisterFilter) {
-            $this->records->where('cash_id', $this->selectedCashRegisterFilter);
+                if ($this->selectedCashRegisterFilter) {
+                    // Дополнительная фильтрация по выбранной кассе
+                    $this->records->where('cash_id', $this->selectedCashRegisterFilter);
+                }
+            }
         }
 
         // Логируем выбранный фильтр кассы
@@ -642,33 +680,34 @@ class RecordForm extends Component
 
     public function render()
     {
-        $this->templates = Template::where('user_id', Auth::id())->get(); // Обновляем список шаблонов
+        // Обновляем список шаблонов
+        $this->templates = Template::where('user_id', Auth::id())->get();
 
-        $dailySummary = $this->getDailySummary();
+        // Проверяем роль пользователя и загружаем доступные кассы
+        $accessibleCashRegisters = Auth::user()->is_admin
+            ? Cash::all() // Администратор видит все кассы
+            : Auth::user()->availableCashRegisters;
 
+        // Если фильтруем по кассе
         $records = Record::query();
-
-        // Получаем доступные кассы для пользователя через связь с таблицей cash_user
-        $accessibleCashRegisters = Auth::user()->availableCashRegisters;
-
-        // Проверяем, если у пользователя есть доступные кассы
         if ($accessibleCashRegisters->isNotEmpty()) {
-            // Получаем массив ID доступных касс
-            $accessibleCashRegisterIds = $accessibleCashRegisters->modelKeys();
-
-            // Фильтруем записи, относящиеся к этим кассам
+            $accessibleCashRegisterIds = $accessibleCashRegisters->pluck('id')->toArray();
             $records->whereIn('cash_id', $accessibleCashRegisterIds);
         }
 
-        // Фильтрация по выбранной кассе, если она указана
         if ($this->selectedCashRegisterFilter) {
+            // Применяем фильтрацию по выбранной кассе
             $records->where('cash_id', $this->selectedCashRegisterFilter);
+
+            // Устанавливаем валюту выбранной кассы
+            $selectedCash = $accessibleCashRegisters->firstWhere('id', $this->selectedCashRegisterFilter);
+            $this->singleCurrency = $selectedCash ? $selectedCash->currency->currency : null;
+        } else {
+            // Сбрасываем валюту, если фильтр сброшен
+            $this->singleCurrency = null;
         }
 
-        // Логируем выбранный фильтр кассы
-        \Log::info('Filtered records by selected cash register filter: ', [$this->selectedCashRegisterFilter]);
-
-        // Применяем фильтрацию по дате (если указано)
+        // Применяем фильтрацию по дате
         if ($this->filterType === 'daily' && $this->dateFilter) {
             $records->whereDate('Date', $this->dateFilter);
         } elseif ($this->filterType === 'weekly') {
@@ -679,17 +718,19 @@ class RecordForm extends Component
             $records->whereBetween('Date', [$this->startDate, $this->endDate]);
         }
 
-        // Применяем пагинацию
+        // Пагинация и сортировка
         $records = $records->orderBy('created_at', 'desc')->paginate(20);
+
+        // Рассчитываем ежедневные итоги
+        $dailySummary = $this->getDailySummary();
 
         return view('livewire.record-form', [
             'records' => $records,
             'dailySummary' => $dailySummary,
             'showBalance' => $this->filterType === 'daily',
-            'availableCashRegisters' => $accessibleCashRegisters, // Передаем кассы в шаблон для фильтра
+            'availableCashRegisters' => $accessibleCashRegisters,
         ]);
     }
-
 
 
 }
