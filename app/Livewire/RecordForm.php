@@ -25,6 +25,7 @@ class RecordForm extends Component
     public $titleTemplate, $icon;
     public $templates = [];
     public $recordId = null;
+    public $templateIdToDelete = null;
     public $isModalOpen = false;
     public $object;
     public $filterType = 'daily'; // Тип фильтра: daily, weekly, monthly, custom
@@ -333,21 +334,31 @@ class RecordForm extends Component
     }
 
 
-    public function deleteRecord($id)
+    public function deleteRecord()
     {
         if (!Auth::user()->is_admin) {
             abort(403, 'У вас нет доступа к удалению записей.');
         }
-        Record::findOrFail($id)->delete();
+
+        // Удаляем запись по сохранённому ID
+        Record::findOrFail($this->recordId)->delete();
+
+        // Сбрасываем ID записи
+        $this->recordId = null;
+
+        // Отправляем сообщение об успехе
         session()->flash('message', 'Запись успешно удалена.');
     }
 
 
+
     public function confirmDeleteRecord($id)
     {
-        // Показываем модальное окно подтверждения с помощью Livewire.
-        // Используем событие для фронта.
-        $this->dispatch('show-delete-confirmation', ['recordId' => $id]);
+        // Сохраняем ID записи для удаления
+        $this->recordId = $id;
+
+        // Отправляем событие для отображения окна подтверждения на фронте
+        $this->dispatch('show-delete-record-confirmation');
     }
 
 
@@ -587,14 +598,26 @@ class RecordForm extends Component
     // }
 
 
-    public function deleteTemplate($id)
+    public function confirmDeleteTemplate($id)
     {
-        $template = Template::where('id', $id)->where('user_id', Auth::id())->firstOrFail(); // Удаляем только свой шаблон
+        $this->templateIdToDelete = $id;
+        $this->dispatch('show-delete-template-confirmation');
+    }
+    
+    public function deleteTemplate()
+    {
+        $template = Template::where('id', $this->templateIdToDelete)
+            ->where('user_id', Auth::id())
+            ->firstOrFail(); // Удаляем только свой шаблон
         $template->delete();
 
         $this->templates = Template::where('user_id', Auth::id())->get(); // Обновляем список шаблонов
         session()->flash('message', 'Шаблон успешно удалён.');
+
+        // Сбрасываем ID шаблона
+        $this->templateIdToDelete = null;
     }
+
 
 
 

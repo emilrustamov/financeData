@@ -38,7 +38,7 @@
                             </button>
                             <!-- Кнопка удаления -->
                             <button class="btn btn-sm btn-outline-danger"
-                                wire:click="deleteTemplate({{ $template->id }})" title="Удалить">
+                                wire:click="confirmDeleteTemplate({{ $template->id }})" title="Удалить">
                                 <i class="bi bi-trash"></i>
                             </button>
                             <!-- Кнопка применения -->
@@ -272,7 +272,7 @@
 
                             @if (!$isCashClosed)
                                 <i class="bi bi-trash text-danger ms-3" role="button"
-                                    wire:click="deleteRecord({{ $record->id }})" ></i>
+                                    wire:click="confirmDeleteRecord({{ $record->id }})"></i>
                             @endif
                         @endif
 
@@ -480,3 +480,18 @@
         </div>
     </div>
 </div>
+<script>
+    window.addEventListener('show-delete-record-confirmation', () => {
+        if (confirm('Вы уверены, что хотите удалить запись?')) {
+            @this.call('deleteRecord'); // Вызываем метод Livewire для удаления записи
+        }
+    });
+</script>
+<script>
+    window.addEventListener('show-delete-template-confirmation', () => {
+        if (confirm('Вы уверены, что хотите удалить этот шаблон?')) {
+            @this.call('deleteTemplate'); // Вызываем метод удаления
+        }
+    });
+</script>
+
