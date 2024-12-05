@@ -345,8 +345,7 @@
                         <div class="mb-3">
                             @if (Auth::user()->is_admin)
                                 <label for="selectCashRegister">Выберите кассу</label>
-                                <select wire:model="selectedCashRegister" id="selectCashRegister"
-                                    class="form-select">
+                                <select wire:model="selectedCashRegister" id="selectCashRegister" class="form-select">
                                     <option value="" disabled selected>Выберите кассу</option>
                                     @foreach ($availableCashRegisters as $cash)
                                         <option value="{{ $cash->id }}">
@@ -354,7 +353,7 @@
                                         </option>
                                     @endforeach
                                 </select>
-
+                        
                                 @error('selectedCashRegister')
                                     <span class="text-danger">{{ $message }}</span>
                                 @enderror
@@ -365,8 +364,7 @@
                                 @endif
                             @endif
                         </div>
-
-
+                        
 
 
 
@@ -396,7 +394,10 @@
                             @enderror
                         </div>
 
-                        @if (!$singleCurrency)
+                        @if (Auth::user()->availableCashRegisters->count() === 1 && !$this->selectedCashRegisterFilter)
+                            <!-- Если доступна одна касса, подставляем валюту автоматически -->
+                            <input type="hidden" wire:model="currency" value="{{ $singleCurrency }}">
+                        @else
                             <div class="mb-3">
                                 <label for="currency">Выберите валюту</label>
                                 <select wire:model.live="currency" id="currency" class="form-select">
@@ -411,6 +412,7 @@
                                 @enderror
                             </div>
                         @endif
+
 
                         <div class="mb-3">
                             <input type="text" wire:model.live="exchangeRate" id="exchangeRate"
@@ -494,4 +496,3 @@
         }
     });
 </script>
-

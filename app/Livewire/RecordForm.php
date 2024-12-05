@@ -74,28 +74,30 @@ class RecordForm extends Component
         $this->recordId = $id;
         $this->isTemplate = $isTemplate;
 
+        // Загружаем доступные кассы независимо от фильтра
+        $this->loadAvailableCashRegisters();
+
         if ($id) {
+            // Логика редактирования записи или шаблона
             if ($isTemplate) {
                 $template = Template::findOrFail($id);
                 $this->titleTemplate = $template->title_template;
                 $this->icon = $template->icon;
                 $this->articleType = $template->ArticleType;
                 $this->articleDescription = $template->ArticleDescription;
-                $this->amount = $template->original_amount; // Оригинальная сумма
-                $this->currency = $template->original_currency; // Оригинальная валюта
+                $this->amount = $template->original_amount;
+                $this->currency = $template->original_currency;
                 $this->date = $template->Date;
                 $this->exchangeRate = $template->ExchangeRate;
                 $this->link = $template->Link;
                 $this->object = $template->Object;
-
-                // Устанавливаем кассу из шаблона
-                $this->selectedCashRegister = $template->cash_id;  // Сохраняем кассу из шаблона
+                $this->selectedCashRegister = $template->cash_id;
             } else {
                 $record = Record::findOrFail($id);
                 $this->articleType = $record->ArticleType;
                 $this->articleDescription = $record->ArticleDescription;
-                $this->amount = $record->original_amount; // Оригинальная сумма
-                $this->currency = $record->original_currency; // Оригинальная валюта
+                $this->amount = $record->original_amount;
+                $this->currency = $record->original_currency;
                 $this->date = $record->Date;
                 $this->exchangeRate = $record->ExchangeRate;
                 $this->link = $record->Link;
@@ -103,7 +105,7 @@ class RecordForm extends Component
                 $this->selectedCashRegister = $record->cash_id;
             }
         } else {
-            // Для новой записи
+            // Логика для новой записи
             $this->articleType = null;
             $this->articleDescription = null;
             $this->amount = null;
@@ -112,18 +114,23 @@ class RecordForm extends Component
             $this->exchangeRate = null;
             $this->link = null;
             $this->object = null;
-            // Устанавливаем первую доступную кассу как выбранную
-            $this->loadAvailableCashRegisters();
-            if ($this->availableCashRegisters->isNotEmpty()) {
-                $this->selectedCashRegister = $this->availableCashRegisters->first()->id;
+
+            // Если доступна одна касса, устанавливаем её и валюту
+            if ($this->availableCashRegisters->count() === 1) {
+                $cashRegister = $this->availableCashRegisters->first();
+                $this->selectedCashRegister = $cashRegister->id;  // Обновляем выбранную кассу
+                $this->currency = $cashRegister->currency->currency;
             } else {
-                $this->selectedCashRegister = null; // Если касс нет
+                $cashRegister = $this->availableCashRegisters->first();
+                $this->selectedCashRegister = $cashRegister->id;
+                $this->currency = null; // У администратора должен быть выбор
             }
         }
 
-        $this->loadAvailableCashRegisters();
         $this->isModalOpen = true;
     }
+
+
 
 
 
@@ -136,20 +143,20 @@ class RecordForm extends Component
             return;
         }
 
-        if (Auth::user()->is_admin) {
-            // Администратор видит все кассы
-            $this->availableCashRegisters = Cash::all();
+        if ($user->is_admin) {
+            $this->availableCashRegisters = Cash::all(); // Администратор видит все кассы
         } else {
-            // Обычный пользователь видит только доступные кассы
-            $this->availableCashRegisters = Auth::user()->availableCashRegisters;
+            $this->availableCashRegisters = $user->availableCashRegisters; // Для обычных пользователей доступ ограничен
         }
 
-        // Если доступна только одна касса, задаем её валюту
+        // Логика установки валюты, если доступна одна касса
         if ($this->availableCashRegisters->count() === 1) {
-            $this->singleCurrency = $this->availableCashRegisters->first()->currency->currency;
-            $this->currency = $this->singleCurrency; // Устанавливаем валюту автоматически
+            $cashRegister = $this->availableCashRegisters->first();
+            $this->singleCurrency = $cashRegister->currency->currency;
+            $this->currency = $cashRegister->currency->currency;
         } else {
-            $this->singleCurrency = null; // Если касс больше одной, сбрасываем значение
+            $this->singleCurrency = null;
+            $this->currency = null;
         }
     }
 
@@ -603,7 +610,7 @@ class RecordForm extends Component
         $this->templateIdToDelete = $id;
         $this->dispatch('show-delete-template-confirmation');
     }
-    
+
     public function deleteTemplate()
     {
         $template = Template::where('id', $this->templateIdToDelete)
