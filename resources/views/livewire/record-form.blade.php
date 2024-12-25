@@ -95,6 +95,7 @@
                         <option value="weekly">За неделю</option>
                         <option value="monthly">За месяц</option>
                         <option value="custom">Пользовательский диапазон</option>
+                        <option value="all">За все время</option>
                     </select>
                 </div>
                 <div class="col-md-4">
@@ -469,7 +470,7 @@
                             <div>
 
                                 <div class="dropdown">
-                                    <button class="btn btn-outline-secondary dropdown-toggle" type="button"
+                                    <button class="btn dropdown-toggle" type="button"
                                         id="iconDropdown" data-bs-toggle="dropdown" aria-expanded="false">
                                         @if ($icon)
                                             <i class="{{ $icon }} fs-5"></i> {{ $icon }}

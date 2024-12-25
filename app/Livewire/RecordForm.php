@@ -751,6 +751,8 @@ class RecordForm extends Component
             $records->whereBetween('Date', [now()->startOfMonth(), now()->endOfMonth()]);
         } elseif ($this->filterType === 'custom' && $this->startDate && $this->endDate) {
             $records->whereBetween('Date', [$this->startDate, $this->endDate]);
+        } elseif ($this->filterType === 'all') {
+            // No date filter applied
         }
 
         // Apply article type filter
