@@ -18,42 +18,47 @@ use Carbon\Carbon;
 class RecordForm extends Component
 {
     use WithPagination;
-    public $articleType, $articleDescription, $amount, $currency, $date, $exchangeRate, $link;
-    public $isTemplate = false;
-    public $dateFilter;
-    public $totalBalance;
-    public $titleTemplate, $icon;
-    public $templates = [];
-    public $recordId = null;
-    public $templateIdToDelete = null;
-    public $isModalOpen = false;
-    public $object;
-    public $filterType = 'daily'; // Тип фильтра: daily, weekly, monthly, custom
-    public $startDate = null;    // Для пользовательского диапазона
-    public $endDate = null;      // Для пользовательского диапазона
-    public $availableCashRegisters = [];
-    public $selectedCashRegister = null;
-    public $singleCurrency = null; // Для хранения валюты единственной доступной кассы
-
-    public $selectedCashRegisterFilter; // Для хранения выбранной кассы для фильтрации
-
-
-    public $availableIcons = [
-        'bi-fuel-pump',
-        'bi-tools',
-        'bi-droplet-half',
-        'bi-droplet',
-        'bi-cup-straw',
-        'bi-cart',
-        'bi-pencil',
-        'bi-bucket',
-        'bi-cash-coin',
-        'bi-person-badge',
-        'bi-person-workspace',
-    ]; // сделать пустым, если используется метод getAvailableIcons
-    public $isCashClosed = false;
-    public $defaultExchangeRates = [];
-    public $suggestions = [];
+    public
+        $articleType,
+        $articleDescription,
+        $amount,
+        $currency,
+        $date,
+        $exchangeRate,
+        $link,
+        $isTemplate = false,
+        $dateFilter,
+        $totalBalance,
+        $titleTemplate, $icon,
+        $templates = [],
+        $recordId = null,
+        $templateIdToDelete = null,
+        $isModalOpen = false,
+        $object,
+        $filterType = 'daily',
+        $startDate = null,
+        $endDate = null,
+        $availableCashRegisters = [],
+        $selectedCashRegister = null,
+        $singleCurrency = null,
+        $selectedCashRegisterFilter,
+        $availableIcons = [
+            'bi-fuel-pump',
+            'bi-tools',
+            'bi-droplet-half',
+            'bi-droplet',
+            'bi-cup-straw',
+            'bi-cart',
+            'bi-pencil',
+            'bi-bucket',
+            'bi-cash-coin',
+            'bi-person-badge',
+            'bi-person-workspace',
+        ], // сделать пустым, если используется метод getAvailableIcons
+        $isCashClosed = false,
+        $defaultExchangeRates = [],
+        $suggestions = [],
+        $articleTypeFilter = [];
     protected $rules = [
 
         'articleType' => 'required|in:Приход,Расход',
@@ -748,6 +753,11 @@ class RecordForm extends Component
             $records->whereBetween('Date', [$this->startDate, $this->endDate]);
         }
 
+        // Apply article type filter
+        if ($this->articleTypeFilter) {
+            $records->where('ArticleType', $this->articleTypeFilter);
+        }
+
         // Пагинация и сортировка
         $records = $records->orderBy('created_at', 'desc')->paginate(20);
 
@@ -761,6 +771,4 @@ class RecordForm extends Component
             'availableCashRegisters' => $accessibleCashRegisters,
         ]);
     }
-
-
 }

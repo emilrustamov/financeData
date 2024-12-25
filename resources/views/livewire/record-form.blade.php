@@ -83,36 +83,41 @@
             </div>
         </div>
         <div class="card-body" id="card-body">
-            <div>
-                <!-- Выбор типа фильтра -->
-                <select id="filterType" class="form-control" wire:model.live="filterType">
-                    <option value="daily">За день</option>
-                    <option value="weekly">За неделю</option>
-                    <option value="monthly">За месяц</option>
-                    <option value="custom">Пользовательский диапазон</option>
-                </select>
-            </div>
+            <div class="row g-3">
+                <div class="col-md-4">
+                    <!-- Search input -->
+                    <input type="text" class="form-control mb-3" placeholder="Поиск по описанию или клиенту" wire:model.live="searchTerm">
+                </div>
+                <div class="col-md-4">
+                    <!-- Выбор типа фильтра -->
+                    <select id="filterType" class="form-control" wire:model.live="filterType">
+                        <option value="daily">За день</option>
+                        <option value="weekly">За неделю</option>
+                        <option value="monthly">За месяц</option>
+                        <option value="custom">Пользовательский диапазон</option>
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <!-- Поле для ввода даты за день -->
+                    @if ($filterType === 'daily')
+                        {{-- <label for="dateFilter">Выберите день</label> --}}
+                        <input type="date" id="dateFilter" class="form-control" wire:model.lazy="dateFilter">
+                    @endif
 
-            <div>
-                <!-- Поле для ввода даты за день -->
-                @if ($filterType === 'daily')
-                    <label for="dateFilter">Выберите день</label>
-                    <input type="date" id="dateFilter" class="form-control" wire:model.lazy="dateFilter">
-                @endif
-
-                <!-- Поля для пользовательского диапазона -->
-                @if ($filterType === 'custom')
-                    <div class="row">
-                        <div class="col">
-                            <label for="startDate">Начало</label>
-                            <input type="date" id="startDate" class="form-control" wire:model.live="startDate">
+                    <!-- Поля для пользовательского диапазона -->
+                    @if ($filterType === 'custom')
+                        <div class="row">
+                            <div class="col">
+                                {{-- <label for="startDate">Начало</label> --}}
+                                <input type="date" id="startDate" class="form-control" wire:model.live="startDate">
+                            </div>
+                            <div class="col">
+                                {{-- <label for="endDate">Конец</label> --}}
+                                <input type="date" id="endDate" class="form-control" wire:model.live="endDate">
+                            </div>
                         </div>
-                        <div class="col">
-                            <label for="endDate">Конец</label>
-                            <input type="date" id="endDate" class="form-control" wire:model.live="endDate">
-                        </div>
-                    </div>
-                @endif
+                    @endif
+                </div>
             </div>
             <div class="row mt-2">
                 <div class="col-3">
@@ -225,7 +230,21 @@
     <table class="table table-bordered">
         <thead class="table-light">
             <tr>
-                <th>Тип статьи</th>
+                <th>
+                    <div class="dropdown">
+                        <button class="btn btn-outline-secondary dropdown-toggle" type="button" id="articleTypeDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                            Тип статьи
+                            @if ($articleTypeFilter)
+                                ({{ $articleTypeFilter }})
+                            @endif
+                        </button>
+                        <ul class="dropdown-menu" aria-labelledby="articleTypeDropdown">
+                            <li><a class="dropdown-item" href="#" wire:click.prevent="$set('articleTypeFilter', '')">Все</a></li>
+                            <li><a class="dropdown-item" href="#" wire:click.prevent="$set('articleTypeFilter', 'Приход')">Приход</a></li>
+                            <li><a class="dropdown-item" href="#" wire:click.prevent="$set('articleTypeFilter', 'Расход')">Расход</a></li>
+                        </ul>
+                    </div>
+                </th>
                 <th>Описание статьи</th>
                 <th>Сумма</th>
                 <th>Клиент</th>
@@ -238,50 +257,51 @@
         </thead>
         <tbody>
             @foreach ($records as $record)
-                <tr>
-                    <td
-                        class="@if ($record->ArticleType === 'Приход') bg-success text-white @elseif ($record->ArticleType === 'Расход') bg-danger text-white @endif">
-                        {{ $record->ArticleType }}
-                    </td>
-                    <td>{{ $record->ArticleDescription }}</td>
-                    <td>{{ number_format($record->original_amount, 2, '.', ' ') }}</td>
-                    <td>
-                        @if ($record->Object)
-                            {{ $record->Object }}
-                        @else
-                            <span>Нет клиента</span>
-                        @endif
-                    </td>
-                    <td>{{ $record->original_currency }}</td>
-                    <td>{{ $record->Date }}</td>
-                    <td>{{ number_format($record->ExchangeRate, 2, '.', ' ') }}</td>
-                    <td>
-                        @if ($record->Link)
-                            <a href="{{ $record->Link }}" target="_blank">Ссылка</a>
-                        @else
-                            <span>Нет ссылки</span>
-                        @endif
-                    </td>
-                    <td>
-                        @if (Auth::check() && Auth::user()->is_admin)
-                            @php
-                                $isCashClosed = \App\Models\CashRegister::where('cash_id', $record->cash_id)
-                                    ->whereDate('Date', $record->Date)
-                                    ->exists();
-                            @endphp
-
-                            @if (!$isCashClosed)
-                                <i class="bi bi-trash text-danger ms-3" role="button"
-                                    wire:click="confirmDeleteRecord({{ $record->id }})"></i>
+                @if (!$articleTypeFilter || $record->ArticleType === $articleTypeFilter)
+                    <tr>
+                        <td class="@if ($record->ArticleType === 'Приход') bg-success text-white @elseif ($record->ArticleType === 'Расход') bg-danger text-white @endif">
+                            {{ $record->ArticleType }}
+                        </td>
+                        <td>{{ $record->ArticleDescription }}</td>
+                        <td>{{ number_format($record->original_amount, 2, '.', ' ') }}</td>
+                        <td>
+                            @if ($record->Object)
+                                {{ $record->Object }}
+                            @else
+                                <span>Нет клиента</span>
                             @endif
-                        @endif
+                        </td>
+                        <td>{{ $record->original_currency }}</td>
+                        <td>{{ $record->Date }}</td>
+                        <td>{{ number_format($record->ExchangeRate, 2, '.', ' ') }}</td>
+                        <td>
+                            @if ($record->Link)
+                                <a href="{{ $record->Link }}" target="_blank">Ссылка</a>
+                            @else
+                                <span>Нет ссылки</span>
+                            @endif
+                        </td>
+                        <td>
+                            @if (Auth::check() && Auth::user()->is_admin)
+                                @php
+                                    $isCashClosed = \App\Models\CashRegister::where('cash_id', $record->cash_id)
+                                        ->whereDate('Date', $record->Date)
+                                        ->exists();
+                                @endphp
 
-                        <i class="bi bi-pencil-square ms-3 text-warning" role="button"
-                            wire:click="openModal({{ $record->id }})"></i>
-                        <i class="bi bi-files ms-3 text-primary" role="button"
-                            wire:click="copyRecord({{ $record->id }})" title="Копировать"></i>
-                    </td>
-                </tr>
+                                @if (!$isCashClosed)
+                                    <i class="bi bi-trash text-danger ms-3" role="button"
+                                        wire:click="confirmDeleteRecord({{ $record->id }})"></i>
+                                @endif
+                            @endif
+
+                            <i class="bi bi-pencil-square ms-3 text-warning" role="button"
+                                wire:click="openModal({{ $record->id }})"></i>
+                            <i class="bi bi-files ms-3 text-primary" role="button"
+                                wire:click="copyRecord({{ $record->id }})" title="Копировать"></i>
+                        </td>
+                    </tr>
+                @endif
             @endforeach
         </tbody>
 
