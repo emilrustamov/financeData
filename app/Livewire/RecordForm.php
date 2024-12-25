@@ -58,7 +58,8 @@ class RecordForm extends Component
         $isCashClosed = false,
         $defaultExchangeRates = [],
         $suggestions = [],
-        $articleTypeFilter = [];
+        $articleTypeFilter = [],
+        $searchTerm;
     protected $rules = [
 
         'articleType' => 'required|in:Приход,Расход',
@@ -758,6 +759,14 @@ class RecordForm extends Component
         // Apply article type filter
         if ($this->articleTypeFilter) {
             $records->where('ArticleType', $this->articleTypeFilter);
+        }
+
+        // Apply search filter
+        if ($this->searchTerm) {
+            $records->where(function ($query) {
+                $query->where('ArticleDescription', 'like', '%' . $this->searchTerm . '%')
+                      ->orWhere('Object', 'like', '%' . $this->searchTerm . '%');
+            });
         }
 
         // Пагинация и сортировка
