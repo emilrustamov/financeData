@@ -86,7 +86,8 @@
             <div class="row g-3">
                 <div class="col-md-4">
                     <!-- Search input -->
-                    <input type="text" class="form-control mb-3" placeholder="Поиск по описанию или клиенту" wire:model.live="searchTerm">
+                    <input type="text" class="form-control mb-3" placeholder="Поиск по описанию или клиенту"
+                        wire:model.live="searchTerm">
                 </div>
                 <div class="col-md-4">
                     <!-- Выбор типа фильтра -->
@@ -121,19 +122,19 @@
                 </div>
             </div>
             <div class="row mt-2">
-                <div class="col-3">
+                <div class="col-2">
                     <div class="stat-box">
                         <h6>Приход</h6>
                         <p class="text-success fs-4">{{ $dailySummary['income'] }} {{ $dailySummary['currency'] }}</p>
                     </div>
                 </div>
-                <div class="col-3">
+                <div class="col-2">
                     <div class="stat-box">
                         <h6>Расход</h6>
                         <p class="text-danger fs-4">{{ $dailySummary['expense'] }} {{ $dailySummary['currency'] }}</p>
                     </div>
                 </div>
-                <div class="col-3">
+                <div class="col-2">
                     <div class="stat-box">
                         <h6>Текущий итоговый баланс</h6>
                         <p class="fs-4" style="color: {{ $dailySummary['totalBalance'] >= 0 ? 'green' : 'red' }}">
@@ -141,8 +142,16 @@
                         </p>
                     </div>
                 </div>
+                <div class="col-2">
+                    <div class="stat-box">
+                        <h6>Долговой баланс</h6>
+                        <p class="fs-4" style="color: {{ $dailySummary['debtBalance'] > 0 ? 'red' : 'green' }}">
+                            {{ number_format($dailySummary['debtBalance'], 1) }} {{ $dailySummary['currency'] }}
+                        </p>
+                    </div>
+                </div>
                 @if ($showBalance)
-                    <div class="col-3">
+                    <div class="col-2">
                         <div class="stat-box">
                             <h6>Баланс за выбранный день</h6>
                             <p class="fs-4"
@@ -233,16 +242,20 @@
             <tr>
                 <th>
                     <div class="dropdown">
-                        <button class="btn btn-outline-secondary dropdown-toggle" type="button" id="articleTypeDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                        <button class="btn btn-outline-secondary dropdown-toggle" type="button"
+                            id="articleTypeDropdown" data-bs-toggle="dropdown" aria-expanded="false">
                             Тип статьи
                             @if ($articleTypeFilter)
                                 ({{ $articleTypeFilter }})
                             @endif
                         </button>
                         <ul class="dropdown-menu" aria-labelledby="articleTypeDropdown">
-                            <li><a class="dropdown-item" href="#" wire:click.prevent="$set('articleTypeFilter', '')">Все</a></li>
-                            <li><a class="dropdown-item" href="#" wire:click.prevent="$set('articleTypeFilter', 'Приход')">Приход</a></li>
-                            <li><a class="dropdown-item" href="#" wire:click.prevent="$set('articleTypeFilter', 'Расход')">Расход</a></li>
+                            <li><a class="dropdown-item" href="#"
+                                    wire:click.prevent="$set('articleTypeFilter', '')">Все</a></li>
+                            <li><a class="dropdown-item" href="#"
+                                    wire:click.prevent="$set('articleTypeFilter', 'Приход')">Приход</a></li>
+                            <li><a class="dropdown-item" href="#"
+                                    wire:click.prevent="$set('articleTypeFilter', 'Расход')">Расход</a></li>
                         </ul>
                     </div>
                 </th>
@@ -252,15 +265,35 @@
                 <th>Валюта</th>
                 <th>Дата</th>
                 <th>Курс обмена</th>
-                <th>Ссылка</th>
+                <th>
+                    <div class="dropdown">
+                        <button class="btn btn-outline-secondary dropdown-toggle" type="button"
+                            id="debtFilterDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                            Долг
+                            @if ($debtFilter)
+                                ({{ $debtFilter === 'true' ? 'Да' : 'Нет' }})
+                            @endif
+                        </button>
+                        <ul class="dropdown-menu" aria-labelledby="debtFilterDropdown">
+                            <li><a class="dropdown-item" href="#"
+                                    wire:click.prevent="$set('debtFilter', '')">Все</a></li>
+                            <li><a class="dropdown-item" href="#"
+                                    wire:click.prevent="$set('debtFilter', 'true')">Да</a></li>
+                            <li><a class="dropdown-item" href="#"
+                                    wire:click.prevent="$set('debtFilter', 'false')">Нет</a></li>
+                        </ul>
+                    </div>
+                </th>
                 <th>Действия</th>
             </tr>
         </thead>
         <tbody>
             @foreach ($records as $record)
-                @if (!$articleTypeFilter || $record->ArticleType === $articleTypeFilter)
+                @if ((!$articleTypeFilter || $record->ArticleType === $articleTypeFilter) &&
+                     (!$debtFilter || ($debtFilter === 'true' && $record->is_debt) || ($debtFilter === 'false' && !$record->is_debt)))
                     <tr>
-                        <td class="@if ($record->ArticleType === 'Приход') bg-success text-white @elseif ($record->ArticleType === 'Расход') bg-danger text-white @endif">
+                        <td
+                            class="@if ($record->ArticleType === 'Приход') bg-success text-white @elseif ($record->ArticleType === 'Расход') bg-danger text-white @endif">
                             {{ $record->ArticleType }}
                         </td>
                         <td>{{ $record->ArticleDescription }}</td>
@@ -276,12 +309,19 @@
                         <td>{{ $record->Date }}</td>
                         <td>{{ number_format($record->ExchangeRate, 2, '.', ' ') }}</td>
                         <td>
+                            @if ($record->is_debt)
+                                <span class="badge bg-warning">Долг</span>
+                            @else
+                                <span class="badge bg-success">Нет</span>
+                            @endif
+                        </td>
+                        {{-- <td>
                             @if ($record->Link)
                                 <a href="{{ $record->Link }}" target="_blank">Ссылка</a>
                             @else
                                 <span>Нет ссылки</span>
                             @endif
-                        </td>
+                        </td> --}}
                         <td>
                             @if (Auth::check() && Auth::user()->is_admin)
                                 @php
@@ -354,7 +394,7 @@
 
 
                         <div class="mb-3">
-                            <select wire:model="articleType" id="articleType" class="form-select">
+                            <select wire:model.live="articleType" id="articleType" class="form-select">
                                 <option value="">Выберите тип статьи</option>
                                 <option value="Приход">Приход</option>
                                 <option value="Расход">Расход</option>
@@ -366,7 +406,8 @@
                         <div class="mb-3">
                             @if (Auth::user()->is_admin)
                                 <label for="selectCashRegister">Выберите кассу</label>
-                                <select wire:model="selectedCashRegister" id="selectCashRegister" class="form-select">
+                                <select wire:model="selectedCashRegister" id="selectCashRegister"
+                                    class="form-select">
                                     <option value="" disabled selected>Выберите кассу</option>
                                     @foreach ($availableCashRegisters as $cash)
                                         <option value="{{ $cash->id }}">
@@ -374,7 +415,7 @@
                                         </option>
                                     @endforeach
                                 </select>
-                        
+
                                 @error('selectedCashRegister')
                                     <span class="text-danger">{{ $message }}</span>
                                 @enderror
@@ -385,7 +426,7 @@
                                 @endif
                             @endif
                         </div>
-                        
+
 
 
 
@@ -457,6 +498,14 @@
                             <label class="form-check-label" for="isTemplate">Сохранить как шаблон</label>
                         </div>
 
+                        @if ($articleType === 'Расход')
+                            <div class="mb-3 form-check">
+                                <input type="checkbox" class="form-check-input" id="isDebt"
+                                    wire:model.live="isDebt" @if ($isDebt) checked @endif>
+                                <label class="form-check-label" for="isDebt">Пометить как долг</label>
+                            </div>
+                        @endif
+
                         @if ($isTemplate)
                             <div class="mb-3">
                                 <input type="text" id="titleTemplate" class="form-control"
@@ -468,10 +517,9 @@
 
 
                             <div>
-
                                 <div class="dropdown">
-                                    <button class="btn dropdown-toggle" type="button"
-                                        id="iconDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                                    <button class="btn dropdown-toggle" type="button" id="iconDropdown"
+                                        data-bs-toggle="dropdown" aria-expanded="false">
                                         @if ($icon)
                                             <i class="{{ $icon }} fs-5"></i> {{ $icon }}
                                         @else

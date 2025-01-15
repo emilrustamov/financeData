@@ -23,6 +23,7 @@ class Record extends Model
         'Link',
         'Object',
         'cash_id',
+        'is_debt', 
     ];
 
     public function cashRegister()

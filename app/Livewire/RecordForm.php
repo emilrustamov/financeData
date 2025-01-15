@@ -59,7 +59,9 @@ class RecordForm extends Component
         $defaultExchangeRates = [],
         $suggestions = [],
         $articleTypeFilter = [],
-        $searchTerm;
+        $searchTerm,
+        $isDebt = false,
+        $debtFilter = ''; // Add this line
     protected $rules = [
 
         'articleType' => 'required|in:Приход,Расход',
@@ -71,6 +73,7 @@ class RecordForm extends Component
         'link' => 'nullable|string',
         'titleTemplate' => 'required_if:isTemplate,true|string|max:100',
         'icon' => 'required_if:isTemplate,true|string|max:255',
+        'isDebt' => 'boolean', 
     ];
 
 
@@ -80,11 +83,11 @@ class RecordForm extends Component
         $this->recordId = $id;
         $this->isTemplate = $isTemplate;
 
-        // Загружаем доступные кассы независимо от фильтра
+    
         $this->loadAvailableCashRegisters();
 
         if ($id) {
-            // Логика редактирования записи или шаблона
+    
             if ($isTemplate) {
                 $template = Template::findOrFail($id);
                 $this->titleTemplate = $template->title_template;
@@ -109,9 +112,9 @@ class RecordForm extends Component
                 $this->link = $record->Link;
                 $this->object = $record->Object;
                 $this->selectedCashRegister = $record->cash_id;
+                $this->isDebt = $record->is_debt; 
             }
         } else {
-            // Логика для новой записи
             $this->articleType = null;
             $this->articleDescription = null;
             $this->amount = null;
@@ -120,8 +123,8 @@ class RecordForm extends Component
             $this->exchangeRate = null;
             $this->link = null;
             $this->object = null;
+            $this->isDebt = false; 
 
-            // Если доступна одна касса, устанавливаем её и валюту
             if ($this->availableCashRegisters->count() === 1) {
                 $cashRegister = $this->availableCashRegisters->first();
                 $this->selectedCashRegister = $cashRegister->id;  // Обновляем выбранную кассу
@@ -136,26 +139,15 @@ class RecordForm extends Component
         $this->isModalOpen = true;
     }
 
-
-
-
-
     public function loadAvailableCashRegisters()
     {
         $user = Auth::user();
-
-        if (!$user) {
-            \Log::warning('User is not authenticated.');
-            return;
-        }
-
         if ($user->is_admin) {
-            $this->availableCashRegisters = Cash::all(); // Администратор видит все кассы
+            $this->availableCashRegisters = Cash::all(); 
         } else {
-            $this->availableCashRegisters = $user->availableCashRegisters; // Для обычных пользователей доступ ограничен
+            $this->availableCashRegisters = $user->availableCashRegisters;
         }
 
-        // Логика установки валюты, если доступна одна касса
         if ($this->availableCashRegisters->count() === 1) {
             $cashRegister = $this->availableCashRegisters->first();
             $this->singleCurrency = $cashRegister->currency->currency;
@@ -165,8 +157,6 @@ class RecordForm extends Component
             $this->currency = null;
         }
     }
-
-
 
     public function updatedCurrency($value)
     {
@@ -178,12 +168,10 @@ class RecordForm extends Component
         }
     }
 
-
     public function closeModal()
     {
         $this->isModalOpen = false;
     }
-
 
     public function updatedObject($value)
     {
@@ -195,10 +183,8 @@ class RecordForm extends Component
             ->toArray();
     }
 
-
     public function submit()
     {
-        // Валидация формы
         $rules = [
             'articleType' => 'required|in:Приход,Расход',
             'articleDescription' => 'nullable|string|max:255',
@@ -215,24 +201,17 @@ class RecordForm extends Component
         } else {
             $rules['selectedCashRegister'] = 'required|exists:cash,id';
         }
-
         $this->validate($rules);
-
-        // Если касса не выбрана и пользователь не администратор
         if (!$this->selectedCashRegister && !Auth::user()->is_admin) {
             session()->flash('error', 'Выберите кассу.');
             return;
         }
 
-        // Устанавливаем дату
         $date = $this->date ?: now()->format('Y-m-d');
 
-        // Получаем кассу, если выбрана
         $cashRegister = $this->selectedCashRegister ? Cash::find($this->selectedCashRegister) : null;
 
-        // Если касса выбрана, проверяем её валюту и закрытие
         if ($cashRegister) {
-            // Проверка на соответствие валюты записи валюте кассы
             if ($this->currency !== $cashRegister->currency->currency) {
                 session()->flash('error', "Валюта записи ({$this->currency}) должна совпадать с валютой кассы ({$cashRegister->currency->currency}).");
                 return;
@@ -245,7 +224,6 @@ class RecordForm extends Component
             }
         }
 
-        // Конвертация суммы
         $originalAmount = $this->amount;
         $originalCurrency = $this->currency;
         $convertedAmount = $originalAmount;
@@ -258,8 +236,6 @@ class RecordForm extends Component
                 return;
             }
         }
-
-        // Подготовка данных для сохранения
         $data = [
             'ArticleType' => $this->articleType,
             'ArticleDescription' => $this->articleDescription,
@@ -272,21 +248,22 @@ class RecordForm extends Component
             'Link' => $this->link,
             'Object' => $this->object,
             'cash_id' => $this->selectedCashRegister,
+            'is_debt' => $this->isDebt, 
         ];
 
         if ($this->isTemplate) {
-            // Сохранение шаблона
+      
             $data['title_template'] = $this->titleTemplate;
             $data['icon'] = $this->icon;
             $data['user_id'] = Auth::id();
 
             Template::updateOrCreate(['id' => $this->recordId], $data);
         } else {
-            // Сохранение записи
+        
             Record::updateOrCreate(['id' => $this->recordId], $data);
         }
 
-        // Очистка формы после сохранения
+      
         $this->resetExcept([
             'defaultExchangeRates',
             'templates',
@@ -312,7 +289,7 @@ class RecordForm extends Component
             $this->dateFilter = $this->filterType === 'daily' ? now()->format('Y-m-d') : null;
         }
 
-        $this->getDailySummary(); // Перезапускаем расчет
+        $this->getDailySummary(); 
         $this->calculateTotalBalance();
     }
 
@@ -326,13 +303,13 @@ class RecordForm extends Component
         $record = Record::findOrFail($id);
         $this->articleType = $record->ArticleType;
         $this->articleDescription = $record->ArticleDescription;
-        $this->amount = $record->original_amount; // Оригинальная сумма
-        $this->currency = $record->original_currency; // Оригинальная валюта
+        $this->amount = $record->original_amount; 
+        $this->currency = $record->original_currency; 
         $this->date = $record->Date;
         $this->exchangeRate = $record->ExchangeRate;
         $this->link = $record->Link;
         $this->object = $record->Object;
-        $this->recordId = null; // Копия должна быть новой записью
+        $this->recordId = null; 
         $this->isModalOpen = true;
 
         $availableCashRegisterIds = auth()->user()->availableCashRegisters()->pluck('cash.id')->toArray();
@@ -353,13 +330,8 @@ class RecordForm extends Component
             abort(403, 'У вас нет доступа к удалению записей.');
         }
 
-        // Удаляем запись по сохранённому ID
         Record::findOrFail($this->recordId)->delete();
-
-        // Сбрасываем ID записи
         $this->recordId = null;
-
-        // Отправляем сообщение об успехе
         session()->flash('message', 'Запись успешно удалена.');
     }
 
@@ -462,24 +434,29 @@ class RecordForm extends Component
                     $expenseQuery->where('cash_id', $this->selectedCashRegisterFilter);
                 }
 
-                $dailyIncome = $incomeQuery->sum('original_amount');
-                $dailyExpense = $expenseQuery->sum('original_amount');
+                $dailyIncome = $incomeQuery->where('is_debt', false)->sum('original_amount'); // Modify this line
+                $dailyExpense = $expenseQuery->where('is_debt', false)->sum('original_amount'); // Modify this line
                 $dailyBalance = $dailyIncome - $dailyExpense;
 
                 // Итоговый баланс для выбранной кассы
                 $totalIncome = Record::where('cash_id', $this->selectedCashRegisterFilter)
                     ->where('ArticleType', 'Приход')
-                    ->sum('original_amount');
+                    ->where('is_debt', false)->sum('original_amount'); // Modify this line
                 $totalExpense = Record::where('cash_id', $this->selectedCashRegisterFilter)
                     ->where('ArticleType', 'Расход')
-                    ->sum('original_amount');
+                    ->where('is_debt', false)->sum('original_amount'); // Modify this line
                 $totalBalance = $totalIncome - $totalExpense;
+
+                // Долговой баланс для выбранной кассы
+                $debtBalance = Record::where('cash_id', $this->selectedCashRegisterFilter)
+                    ->where('is_debt', true)->sum('original_amount');
 
                 return [
                     'income' => $dailyIncome,
                     'expense' => $dailyExpense,
                     'balance' => $dailyBalance,
                     'totalBalance' => $totalBalance,
+                    'debtBalance' => $debtBalance, // Add this line
                     'currency' => $currency,
                 ];
             }
@@ -492,20 +469,24 @@ class RecordForm extends Component
             $expenseQuery->whereDate('Date', $this->dateFilter);
         }
 
-        $dailyIncome = $incomeQuery->sum('Amount');
-        $dailyExpense = $expenseQuery->sum('Amount');
+        $dailyIncome = $incomeQuery->where('is_debt', false)->sum('Amount'); // Modify this line
+        $dailyExpense = $expenseQuery->where('is_debt', false)->sum('Amount'); // Modify this line
         $dailyBalance = $dailyIncome - $dailyExpense;
 
         // Итоговый баланс для всех касс
-        $totalIncome = Record::where('ArticleType', 'Приход')->sum('Amount');
-        $totalExpense = Record::where('ArticleType', 'Расход')->sum('Amount');
+        $totalIncome = Record::where('ArticleType', 'Приход')->where('is_debt', false)->sum('Amount'); // Modify this line
+        $totalExpense = Record::where('ArticleType', 'Расход')->where('is_debt', false)->sum('Amount'); // Modify this line
         $totalBalance = $totalIncome - $totalExpense;
+
+        // Долговой баланс для всех касс
+        $debtBalance = Record::where('is_debt', true)->sum('Amount'); // Add this line
 
         return [
             'income' => $dailyIncome,
             'expense' => $dailyExpense,
             'balance' => $dailyBalance,
             'totalBalance' => $totalBalance,
+            'debtBalance' => $debtBalance, // Add this line
             'currency' => $currency,
         ];
     }
@@ -524,8 +505,8 @@ class RecordForm extends Component
             if ($cash) {
                 $currency = $cash->currency->currency;
 
-                $totalIncome = $queryIncome->sum('original_amount');
-                $totalExpense = $queryExpense->sum('original_amount');
+                $totalIncome = $queryIncome->where('is_debt', false)->sum('original_amount'); // Modify this line
+                $totalExpense = $queryExpense->where('is_debt', false)->sum('original_amount'); // Modify this line
 
                 return [
                     'total' => $totalIncome - $totalExpense,
@@ -539,8 +520,8 @@ class RecordForm extends Component
             $queryExpense->whereDate('Date', $dateFilter);
         }
 
-        $totalIncome = $queryIncome->sum('Amount');
-        $totalExpense = $queryExpense->sum('Amount');
+        $totalIncome = $queryIncome->where('is_debt', false)->sum('Amount'); // Modify this line
+        $totalExpense = $queryExpense->where('is_debt', false)->sum('Amount'); // Modify this line
 
         return [
             'total' => $totalIncome - $totalExpense,
@@ -675,9 +656,7 @@ class RecordForm extends Component
 
     public function updatedSelectedCashRegisterFilter($value)
     {
-        \Log::info('Selected Cash Register Filter changed to: ' . $value);
 
-        // Обновляем фильтрацию по кассе
         $this->applyCashRegisterFilter();
     }
 
@@ -707,10 +686,7 @@ class RecordForm extends Component
             }
         }
 
-        // Логируем выбранный фильтр кассы
-        \Log::info('Filtered records by selected cash register filter: ', [$this->selectedCashRegisterFilter]);
 
-        // Применяем пагинацию
         $this->records = $this->records->orderBy('created_at', 'desc')->paginate(20);
     }
 
@@ -765,8 +741,13 @@ class RecordForm extends Component
         if ($this->searchTerm) {
             $records->where(function ($query) {
                 $query->where('ArticleDescription', 'like', '%' . $this->searchTerm . '%')
-                      ->orWhere('Object', 'like', '%' . $this->searchTerm . '%');
+                    ->orWhere('Object', 'like', '%' . $this->searchTerm . '%');
             });
+        }
+
+        // Apply debt filter
+        if ($this->debtFilter !== '') {
+            $records->where('is_debt', $this->debtFilter === 'true');
         }
 
         // Пагинация и сортировка
