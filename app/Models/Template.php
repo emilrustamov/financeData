@@ -4,29 +4,23 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Template extends Model
 {
     use HasFactory;
+    use SoftDeletes;
 
-    /**
-     * Атрибуты, которые можно заполнять массово.
-     *
-     * @var array
-     */
     protected $fillable = [
         'title_template',
         'icon',
-        'ArticleType',
-        'ArticleDescription',
-        'Amount',
-        'Currency',
-        'original_amount',
-        'original_currency',
-        'Date',
-        'ExchangeRate',
-        'Link',
-        'Object',
+        'type',
+        'description',
+        'amount',
+        'date',
+        'object_id',
+        'project_id',
+        'category_id',
         'user_id',
         'cash_id',
     ];

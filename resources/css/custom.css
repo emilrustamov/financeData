@@ -1,0 +1,27 @@
+.floating-button {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    z-index: 1000;
+}
+
+.floating-button2 {
+    position: fixed;
+    bottom: 80px;
+    right: 20px;
+    z-index: 1000;
+}
+
+.alert {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 1050;
+}
+
+.nav-link.active {
+    font-weight: bold;
+    color: #fae0e3; 
+    border-bottom: 2px solid #fae0e3; 
+    transition: color 0.3s ease, border-bottom 0.3s ease; 
+}

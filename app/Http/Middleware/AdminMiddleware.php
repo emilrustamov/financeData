@@ -13,12 +13,11 @@ class AdminMiddleware
      */
     public function handle(Request $request, Closure $next)
     {
-        // Проверяем, является ли пользователь администратором
-        if (Auth::check() && Auth::user()->is_admin) {
+ 
+        if (Auth::check() && Auth::user()->is_admin && Auth::user()->is_active) {
             return $next($request);
         }
 
-        // Если пользователь не администратор, перенаправляем на главную
         return redirect('/')
             ->with('error', 'У вас нет доступа к этой странице');
     }

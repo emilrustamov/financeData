@@ -5,13 +5,8 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="robots" content="noindex, nofollow">
-
-    <!-- CSRF Token -->
     <meta name="csrf-token" content="{{ csrf_token() }}">
-
     <title>{{ config('app.name', 'Finance') }}</title>
-
-    <!-- Scripts -->
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
 
@@ -20,36 +15,61 @@
         <nav class="navbar navbar-expand-md navbar-light bg-white shadow-sm">
             <div class="container">
                 <a class="navbar-brand" href="{{ url('/') }}">
-                    {{ config('app.name', 'Finance') }}
+                    <img src="{{ asset('logo.png') }}" alt="Logo" height="50">
                 </a>
 
                 <button class="navbar-toggler" type="button" data-bs-toggle="collapse"
-                    data-bs-target="#navbarNavDropdown" aria-controls="navbarNavDropdown"
-                    aria-expanded="false" aria-label="Toggle navigation">
+                    data-bs-target="#navbarNavDropdown" aria-controls="navbarNavDropdown" aria-expanded="false"
+                    aria-label="Toggle navigation">
                     <span class="navbar-toggler-icon"></span>
                 </button>
 
                 <div class="collapse navbar-collapse" id="navbarNavDropdown">
-                    <!-- Left Side of Navbar -->
                     <ul class="navbar-nav me-auto">
                         @auth
                             <li class="nav-item">
-                                <a class="nav-link" href="{{ route('home') }}">Касса</a>
+                                <a class="nav-link {{ Request::routeIs('home') ? 'active' : '' }}"
+                                    href="{{ route('home') }}">Главная</a>
                             </li>
+                            @can('view analytics')
+                                <li class="nav-item">
+                                    <a class="nav-link {{ Request::routeIs('dashboard.index') ? 'active' : '' }}"
+                                        href="{{ route('dashboard.index') }}">Аналитика</a>
+                                </li>
+                            @endcan
+                            @can('view objects')
+                                <li class="nav-item">
+                                    <a class="nav-link {{ Request::routeIs('object.form') ? 'active' : '' }}"
+                                        href="{{ route('object.form') }}">Контрагенты</a>
+                                </li>
+                            @endcan
+                            @can('view projects')
+                                <li class="nav-item">
+                                    <a class="nav-link {{ Request::routeIs('project.form') ? 'active' : '' }}"
+                                        href="{{ route('project.form') }}">Проекты</a>
+                                </li>
+                            @endcan
+                            @can('view transfers')
+                                <li class="nav-item">
+                                    <a class="nav-link {{ Request::routeIs('transfer.form') ? 'active' : '' }}"
+                                        href="{{ route('transfer.form') }}">Трансферы</a>
+                                </li>
+                            @endcan
                             @if (Auth::user()->is_admin)
                                 <li class="nav-item">
-                                    <a class="nav-link" href="{{ route('users.index') }}">Пользователи</a>
+                                    <a class="nav-link {{ Request::routeIs('users.index') ? 'active' : '' }}"
+                                        href="{{ route('users.index') }}">Пользователи</a>
                                 </li>
+
                                 <li class="nav-item">
-                                    <a class="nav-link" href="{{ route('cash.index') }}">Настройки касс</a>
+                                    <a class="nav-link {{ Request::routeIs('cash.index') ? 'active' : '' }}"
+                                        href="{{ route('cash.index') }}">Кассы</a>
                                 </li>
                             @endif
                         @endauth
                     </ul>
-
-                    <!-- Right Side of Navbar -->
                     <ul class="navbar-nav ms-auto">
-                        <!-- Authentication Links -->
+
                         @guest
                             @if (Route::has('login'))
                                 <li class="nav-item">
@@ -86,6 +106,7 @@
             {{ $slot ?? '' }}
         </main>
     </div>
+    @livewireChartsScripts
 </body>
 
 </html>

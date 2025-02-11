@@ -6,22 +6,18 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
-class CashRegister extends Model
+class ObjectCategories extends Model
 {
     use HasFactory;
     use SoftDeletes;
 
-    protected $fillable = [
-        'balance',
-        'date',
-        'cash_id', 
+    protected $fillable = ['title', 'users'];
+    protected $casts = [
+        'users' => 'array',
     ];
 
-    
-    public function cash()
+    public function objects()
     {
-        return $this->belongsTo(Cash::class, 'cash_id');
+        return $this->hasMany(Objects::class);
     }
-
 }
-

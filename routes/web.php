@@ -2,20 +2,12 @@
 
 use App\Livewire\CashComponent;
 use App\Livewire\UserComponent;
-
+use App\Livewire\ObjectForm;
+use App\Livewire\ProjectForm;
+use App\Livewire\TransferForm;
+use App\Livewire\Dashboard;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Auth;
-
-/*
-|--------------------------------------------------------------------------
-| Web Routes
-|--------------------------------------------------------------------------
-|
-| Here is where you can register web routes for your application. These
-| routes are loaded by the RouteServiceProvider and all of them will
-| be assigned to the "web" middleware group. Make something great!
-|
-*/
 
 Route::middleware('auth')->get('/', function () {
     return view('home'); 
@@ -33,5 +25,7 @@ Route::get('/register', function () {
 
 Route::middleware(['auth', 'admin'])->get('/users', UserComponent::class)->name('users.index');
 Route::middleware(['auth', 'admin'])->get('/cash', CashComponent::class)->name('cash.index');
-
-
+Route::middleware(['auth', 'can:view objects'])->get('/object-form', ObjectForm::class)->name('object.form');
+Route::middleware(['auth', 'can:view projects'])->get('/project-form', ProjectForm::class)->name('project.form');
+Route::middleware(['auth', 'can:view analytics'])->get('/dashboard', Dashboard::class)->name('dashboard.index');
+Route::middleware(['auth', 'can:view transfers'])->get('/transfer-form', TransferForm::class)->name('transfer.form');

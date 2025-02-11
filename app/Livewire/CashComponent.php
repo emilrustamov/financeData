@@ -3,61 +3,49 @@
 namespace App\Livewire;
 
 use App\Models\Cash;
-use App\Models\ExchangeRate;
 use App\Models\User;
 use Livewire\Component;
 use Livewire\WithPagination;
+use App\Models\Record;
 
 class CashComponent extends Component
 {
     use WithPagination;
 
     public $title, $cashId, $userIds = [];
-    public $currency_id; // Поле для хранения выбранной валюты
-    public $isModalOpen = false;
+    public $showForm = false;
 
     protected $rules = [
         'title' => 'required|string|max:255',
-        'currency_id' => 'required|exists:exchange_rates,id', // Проверка существования валюты
         'userIds' => 'array',
     ];
 
     protected $listeners = ['deleteCashConfirmed'];
 
-    public function openModal($id = null)
+    public function openForm($id = null)
     {
-        $this->resetFields();
+        $this->reset();
         $this->cashId = $id;
 
         if ($id) {
             $cash = Cash::findOrFail($id);
             $this->title = $cash->title;
-            $this->currency_id = $cash->currency_id; // Загружаем валюту кассы
             $this->userIds = $cash->users->pluck('id')->toArray();
         }
 
-        $this->isModalOpen = true;
+        $this->showForm = true;
     }
 
-    public function closeModal()
+    public function closeForm()
     {
-        $this->resetFields();
-        $this->isModalOpen = false;
-    }
-
-    public function resetFields()
-    {
-        $this->title = '';
-        $this->cashId = null;
-        $this->currency_id = null;
-        $this->userIds = [];
+        $this->reset();
+        $this->showForm = false;
     }
 
     public function saveCash()
     {
-        $validatedData = $this->validate([
+        $this->validate([
             'title' => 'required|string|max:255',
-            'currency_id' => 'required|exists:exchange_rates,id', // Проверка существования валюты
             'userIds' => 'array',
         ]);
 
@@ -65,19 +53,18 @@ class CashComponent extends Component
             $cash = Cash::findOrFail($this->cashId);
             $cash->update([
                 'title' => $this->title,
-                'currency_id' => $this->currency_id, // Сохраняем валюту
+
             ]);
         } else {
             $cash = Cash::create([
                 'title' => $this->title,
-                'currency_id' => $this->currency_id, // Сохраняем валюту
+
             ]);
         }
 
         $cash->users()->sync($this->userIds);
-
         session()->flash('message', $this->cashId ? 'Касса обновлена.' : 'Касса создана.');
-        $this->closeModal();
+        $this->closeForm();
 
         $this->dispatch('cash-saved');
     }
@@ -90,6 +77,12 @@ class CashComponent extends Component
 
     public function deleteCashConfirmed()
     {
+        if (Record::where('cash_id', $this->cashId)->exists()) {
+            session()->flash('error', 'Невозможно удалить кассу: к ней привязаны записи.');
+            return;
+        }
+
+        // Если связанных записей нет — удаляем
         Cash::findOrFail($this->cashId)->delete();
         $this->cashId = null;
         session()->flash('message', 'Касса удалена.');
@@ -101,7 +94,6 @@ class CashComponent extends Component
         return view('livewire.cash-component', [
             'cashes' => Cash::paginate(10),
             'users' => User::all(),
-            'currencies' => ExchangeRate::all(), // Передаем список валют для выбора
         ]);
     }
 }

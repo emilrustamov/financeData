@@ -1,12 +1,8 @@
 @extends('layouts.app')
 
 @section('content')
-<div class="container-fluid">
-   
-    <livewire:manage-exchange-rates />
-    <hr>
-    <livewire:record-form />
-    
- 
-</div>
+    <div class="container">
+        <livewire:template-form />
+        <livewire:record-form />
+    </div>
 @endsection
