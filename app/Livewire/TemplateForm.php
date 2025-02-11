@@ -33,17 +33,19 @@ class TemplateForm extends Component
         $cashRegisters = [],
         $cashID = null,
         $availableIcons = [
-            'bi-fuel-pump',
             'bi-tools',
-            'bi-droplet-half',
             'bi-droplet',
             'bi-cup-straw',
-            'bi-cart',
             'bi-pencil',
             'bi-bucket',
             'bi-cash-coin',
             'bi-person-badge',
-            'bi-person-workspace',
+            'bi-palette',
+            'bi-shop',
+            'bi-bag',
+            'bi-globe',
+            'bi-heart',
+            'bi-briefcase',
         ];
 
     protected $rules = [
@@ -59,14 +61,16 @@ class TemplateForm extends Component
         'cashID' => 'required|exists:cashes,id',
     ];
 
+    public function mount()
+    {
+       
+    }
+
     public function openForm($id = null)
     {
         $this->resetExcept(['availableIcons']);
         $this->templateId = $id;
-        $this->loadObjects();
-        $this->loadCashRegisters();
-        $this->loadProjects();
-
+    
         if ($id) {
             $template = Template::findOrFail($id);
             $this->titleTemplate = $template->title_template;
@@ -80,36 +84,42 @@ class TemplateForm extends Component
             $this->date = $template->date;
             $this->cashID = $template->cash_id;
         } else {
-            reset($this->rules);
+            $this->resetForm();
         }
-
+    
         $this->showForm = true;
     }
 
-    public function loadCashRegisters()
-    {
-        $this->cashRegisters = Cash::all();
-    }
-
-    public function loadProjects()
-    {
-        $this->projects = Projects::all();
-    }
+  
 
     public function updatedSelectedCategory($categoryId)
     {
         $this->objects = Objects::where('category_id', $categoryId)->get();
     }
 
-    public function loadObjects()
-    {
-        $this->objectCategories = ObjectCategories::all();
-        $this->objects = Objects::all();
-    }
+
 
     public function closeForm()
     {
         $this->showForm = false;
+        $this->resetForm();
+    }
+
+    private function resetForm()
+    {
+        $this->reset([
+            'titleTemplate',
+            'icon',
+            'type',
+            'desc',
+            'amount',
+            'object',
+            'project',
+            'category',
+            'cashID',
+            'templateId'
+        ]);
+        $this->date = date('Y-m-d');
     }
 
     public function createTemplate()
@@ -131,10 +141,6 @@ class TemplateForm extends Component
         ];
 
         Template::updateOrCreate(['id' => $this->templateId], $data);
-        $this->resetExcept(['availableIcons']);
-        $this->loadCashRegisters();
-        $this->loadObjects();
-        $this->loadProjects();
         session()->flash('message', $this->templateId ? 'Шаблон успешно обновлен.' : 'Шаблон успешно добавлен.');
         $this->closeForm();
     }
@@ -166,6 +172,19 @@ class TemplateForm extends Component
     public function render()
     {
         $templates = Template::where('user_id', Auth::id())->get();
+        $user = Auth::user();
+        $this->date = date('Y-m-d');
+        if ($user->is_admin) {
+            $this->cashRegisters = Cash::all();
+            $this->objectCategories = ObjectCategories::all();
+            $this->objects = Objects::with('category')->get();
+            $this->projects = Projects::all();
+        } else {
+            $this->cashRegisters = $user->cashes;
+            $this->objectCategories = ObjectCategories::whereJsonContains('users', $user->id)->get();
+            $this->objects = Objects::with('category')->whereJsonContains('users', $user->id)->get();
+            $this->projects = Projects::whereJsonContains('users', $user->id)->get();
+        }
 
         return view('livewire.template-form', [
             'templates' => $templates,

@@ -1,13 +1,17 @@
 <div class="mt-3 container">
     <div class="floating-button">
+
+
         <button class="btn btn-success rounded-circle shadow" wire:click="openForm()">
-            <i class="bi bi-plus-circle fs-4"></i>
+            <i class="bi bi-people fs-4"></i>
         </button>
     </div>
     <div class="floating-button2">
+
         <button class="btn btn-primary rounded-circle shadow" wire:click="openCategoryModal()">
-            <i class="bi bi-people fs-4"></i>
+            <i class="bi bi-tags fs-4"></i>
         </button>
+
     </div>
     <x-alerts />
     <div class=" mt-3">

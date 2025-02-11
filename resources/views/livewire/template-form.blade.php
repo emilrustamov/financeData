@@ -116,7 +116,13 @@
 
                             <div class="mb-3 d-flex align-items-center">
                                 <i class="bi bi-calendar me-2"></i>
-                                <input wire:model="date" id="date" type="date" class="form-control">
+                                @can('edit date')
+                                    <input wire:model="date" id="date" type="date" class="form-control"
+                                        max="{{ date('Y-m-d') }}">
+                                @else
+                                    <input wire:model="date" id="date" type="date" class="form-control"
+                                        min="{{ date('Y-m-d') }}" max="{{ date('Y-m-d') }}" readonly>
+                                @endcan
                             </div>
                             <div class="mb-3 d-flex align-items-center">
                                 <i class="bi bi-cash me-2"></i>

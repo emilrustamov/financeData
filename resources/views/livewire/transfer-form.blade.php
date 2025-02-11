@@ -31,12 +31,11 @@
                         <td>{{ $transfer->note }}</td>
                         <td>{{ $transfer->user->name }}</td>
                         <td>
-                            <button class="btn btn-sm btn-warning"
-                                wire:click="openForm({{ $user->id }})">
+                            <button class="btn btn-sm btn-warning" wire:click="openForm({{ $transfer->id }})">
                                 <i class="bi bi-pencil-square"></i>
                             </button>
                             <button class="btn btn-sm btn-danger"
-                                wire:click="confirmDeleteUser({{ $user->id }})">
+                                wire:click="confirmDeleteTransfer({{ $transfer->id }})">
                                 <i class="bi bi-trash"></i>
                             </button>
                         </td>

@@ -61,38 +61,73 @@ class TransferForm extends Component
 
         $data = [
             'from_cash_id' => $this->fromCashId,
-            'to_cash_id' => $this->toCashId,
-            'amount' => $this->amount,
-            'user_id' => Auth::id(),
-            'note' => $this->note ?: "Трансфер с кассы " . Cash::find($this->fromCashId)->title . " на кассу " . Cash::find($this->toCashId)->title,
+            'to_cash_id'   => $this->toCashId,
+            'amount'       => $this->amount,
+            'user_id'      => Auth::id(),
+            'note'         => $this->note ?: "Трансфер с кассы " . Cash::find($this->fromCashId)->title . " на кассу " . Cash::find($this->toCashId)->title,
         ];
 
-        $transfer = Transfer::updateOrCreate(['id' => $this->transferId], $data);
+        // Если обновляем существующий трансфер
+        if ($this->transferId) {
+            $transfer = Transfer::findOrFail($this->transferId);
 
-        // Create expense record for fromCash
-        $fromRecord = Record::create([
-            'type' => 0,
-            'description' => $data['note'],
-            'amount' => $this->amount,
-            'date' => now()->format('Y-m-d'),
-            'cash_id' => $this->fromCashId,
-            'user_id' => Auth::id(),
-        ]);
+            // Удаляем старые записи, если они существуют
+            if ($transfer->from_record_id) {
+                Record::destroy($transfer->from_record_id);
+            }
+            if ($transfer->to_record_id) {
+                Record::destroy($transfer->to_record_id);
+            }
 
-        // Create income record for toCash
-        $toRecord = Record::create([
-            'type' => 1,
-            'description' => $data['note'],
-            'amount' => $this->amount,
-            'date' => now()->format('Y-m-d'),
-            'cash_id' => $this->toCashId,
-            'user_id' => Auth::id(),
-        ]);
+            // Создаем новые записи
+            $fromRecord = Record::create([
+                'type'        => 0,
+                'description' => $data['note'],
+                'amount'      => $this->amount,
+                'date'        => now()->format('Y-m-d'),
+                'cash_id'     => $this->fromCashId,
+                'user_id'     => Auth::id(),
+            ]);
 
-        $transfer->update([
-            'from_record_id' => $fromRecord->id,
-            'to_record_id' => $toRecord->id,
-        ]);
+            $toRecord = Record::create([
+                'type'        => 1,
+                'description' => $data['note'],
+                'amount'      => $this->amount,
+                'date'        => now()->format('Y-m-d'),
+                'cash_id'     => $this->toCashId,
+                'user_id'     => Auth::id(),
+            ]);
+
+            // Обновляем трансфер с идентификаторами записей
+            $data['from_record_id'] = $fromRecord->id;
+            $data['to_record_id']   = $toRecord->id;
+            $transfer->update($data);
+        } else {
+            // Если создаем новый трансфер:
+            // Сначала создаем записи для расхода и прихода
+            $fromRecord = Record::create([
+                'type'        => 0,
+                'description' => $data['note'],
+                'amount'      => $this->amount,
+                'date'        => now()->format('Y-m-d'),
+                'cash_id'     => $this->fromCashId,
+                'user_id'     => Auth::id(),
+            ]);
+
+            $toRecord = Record::create([
+                'type'        => 1,
+                'description' => $data['note'],
+                'amount'      => $this->amount,
+                'date'        => now()->format('Y-m-d'),
+                'cash_id'     => $this->toCashId,
+                'user_id'     => Auth::id(),
+            ]);
+
+            // Передаем идентификаторы записей в массив данных и создаем трансфер
+            $data['from_record_id'] = $fromRecord->id;
+            $data['to_record_id']   = $toRecord->id;
+            $transfer = Transfer::create($data);
+        }
 
         session()->flash('message', $this->transferId ? 'Трансфер успешно обновлен.' : 'Трансфер успешно создан.');
         $this->closeForm();
