@@ -6,6 +6,58 @@
             <i class="bi bi-plus-circle fs-4"></i>
         </button>
     </div>
+    @if ($myCashes->count() > 0)
+        <h4>Мои кассы</h4>
+        @if ($myCashes->count() <= 6)
+            <div class="row">
+                @foreach ($myCashes as $cash)
+                    <div class="col-md-2 mb-3">
+                        <div class="card">
+                            <div class="card-body">
+                                <h5 class="card-title">{{ $cash->title }}</h5>
+                                <p class="card-text" style="color: {{ $cash->balance > 0 ? 'green' : ($cash->balance < 0 ? 'red' : '#ffca2c') }}">
+                                    {{ number_format($cash->balance, 2, '.', ' ') }} TMT
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                @endforeach
+            </div>
+        @else
+            <div id="cashCarousel" class="carousel slide" data-bs-interval="false">
+                <div class="carousel-inner">
+                    @foreach ($myCashes->chunk(6) as $chunkIndex => $cashChunk)
+                        <div class="carousel-item {{ $chunkIndex == 0 ? 'active' : '' }}">
+                            <div class="row">
+                                @foreach ($cashChunk as $cash)
+                                    <div class="col-md-2 mb-3">
+                                        <div class="card">
+                                            <div class="card-body">
+                                                <h5 class="card-title">{{ $cash->title }}</h5>
+                                                <p class="card-text" style="color: {{ $cash->balance > 0 ? 'green' : ($cash->balance < 0 ? 'red' : '#ffca2c') }}">
+                                                    {{ number_format($cash->balance, 2, '.', ' ') }} TMT
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                @endforeach
+                            </div>
+                        </div>
+                    @endforeach
+                </div>
+                <button class="carousel-control-prev" type="button" data-bs-target="#cashCarousel"
+                    data-bs-slide="prev">
+                    <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+                    <span class="visually-hidden">Previous</span>
+                </button>
+                <button class="carousel-control-next" type="button" data-bs-target="#cashCarousel"
+                    data-bs-slide="next">
+                    <span class="carousel-control-next-icon" aria-hidden="true"></span>
+                    <span class="visually-hidden">Next</span>
+                </button>
+            </div>
+        @endif
+    @endif
 
     <div class="card mt-3" x-data="{ open: true }">
         <div class="card-header">

@@ -67,6 +67,7 @@ class RecordForm extends Component
             'dailySummary' => $this->getDailySummary(),
             'showBalance'  => $this->filterType === 'daily',
             'isCashClosed' => $this->isCashClosedForDate($this->cashRegFltr, $this->dateFilter),
+            'myCashes'     => $this->myCashes,
         ]);
     }
 
@@ -119,10 +120,10 @@ class RecordForm extends Component
     }
 
     private function resetForm()
-{
-    $this->reset(['amount', 'object', 'project', 'category', 'isCashClosedRecord', 'type', 'desc']);
-    $this->date = date('Y-m-d'); 
-}
+    {
+        $this->reset(['amount', 'object', 'project', 'category', 'isCashClosedRecord', 'type', 'desc']);
+        $this->date = date('Y-m-d');
+    }
 
     public function handleOpenRecordModal($data)
     {
@@ -320,5 +321,18 @@ class RecordForm extends Component
         return CashRegister::where('cash_id', $cashId)
             ->whereDate('date', $date)
             ->exists();
+    }
+
+    public function getMyCashesProperty()
+    {
+        if ($this->cashRegisters && count($this->cashRegisters) > 1) {
+            return collect($this->cashRegisters)->map(function ($cash) {
+                $income = Record::where('cash_id', $cash->id)->where('type', 1)->sum('amount');
+                $expense = Record::where('cash_id', $cash->id)->where('type', 0)->sum('amount');
+                $cash->balance = $income - $expense;
+                return $cash;
+            });
+        }
+        return collect([]);
     }
 }

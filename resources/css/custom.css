@@ -21,7 +21,38 @@
 
 .nav-link.active {
     font-weight: bold;
-    color: #fae0e3; 
-    border-bottom: 2px solid #fae0e3; 
-    transition: color 0.3s ease, border-bottom 0.3s ease; 
+    color: #fae0e3;
+    border-bottom: 2px solid #fae0e3;
+    transition: color 0.3s ease, border-bottom 0.3s ease;
+}
+
+#cashCarousel {
+    position: relative;
+}
+
+#cashCarousel .carousel-control-prev,
+#cashCarousel .carousel-control-next {
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    top: 50%;
+    transform: translateY(-50%);
+    position: absolute;
+}
+
+#cashCarousel .carousel-control-prev {
+    left: -50px;
+}
+
+#cashCarousel .carousel-control-next {
+    right: -50px;
+}
+
+#cashCarousel .carousel-control-prev-icon,
+#cashCarousel .carousel-control-next-icon {
+    filter: invert(1);
+}
+
+body {
+    background-color: #eee;
 }

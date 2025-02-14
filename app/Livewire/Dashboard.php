@@ -9,12 +9,15 @@ use App\Models\Cash;
 use Asantibanez\LivewireCharts\Models\ColumnChartModel;
 use Asantibanez\LivewireCharts\Models\PieChartModel;
 use App\Models\Objects;
+use Maatwebsite\Excel\Facades\Excel;
+use App\Exports\DashboardExport;
 
 class Dashboard extends Component
 {
-    public $selectedMonth;
-    public $selectedYear;
+    public $startDate;
+    public $endDate;
     public $selectedCashes = [];
+    public $cashRegisters;
     public $allCashes = [];
     public $cashOneCategory;
     public $cashTwoCategory;
@@ -23,9 +26,12 @@ class Dashboard extends Component
 
     public function mount()
     {
-        $this->selectedMonth = Carbon::now()->month;
-        $this->selectedYear = Carbon::now()->year;
-        $this->allCashes = Cash::pluck('title', 'id')->toArray();
+        $this->startDate = Carbon::now()->startOfMonth()->toDateString();
+        $this->endDate   = Carbon::now()->endOfMonth()->toDateString();
+
+        $user = auth()->user();
+        $this->cashRegisters = $user->cashes;
+        $this->allCashes = $this->cashRegisters->pluck('title', 'id')->toArray();
         $this->selectedCashes = array_keys($this->allCashes);
 
         $this->cashOneCategory = array_key_first($this->allCashes);
@@ -37,23 +43,28 @@ class Dashboard extends Component
 
     public function render()
     {
-
         $colors = ['#f6ad55', '#fc8181', '#90cdf4', '#68d391', '#e53e3e', '#4299e1', '#ed8936', '#48bb78'];
+
         $data = Record::where('type', 0)
-            ->whereYear('date', $this->selectedYear)
-            ->whereMonth('date', $this->selectedMonth)
+            ->whereBetween('date', [$this->startDate, $this->endDate])
             ->whereIn('cash_id', $this->selectedCashes)
             ->selectRaw('cash_id, SUM(amount) as total')
             ->groupBy('cash_id')
             ->get();
 
-        $columnChart = new ColumnChartModel();
+        $cashChart = new ColumnChartModel();
+        $cashChart->multiColumn()->setColumnWidth(30);
+
+        $xCategories = [];
         $displayData = [];
         $colorIndex = 0;
         foreach ($data as $item) {
             $cashTitle = $this->allCashes[$item->cash_id] ?? "Касса {$item->cash_id}";
             $color = $colors[$colorIndex % count($colors)];
-            $columnChart->addColumn($cashTitle, $item->total, $color);
+
+            $xCategories[] = $cashTitle;
+     
+            $cashChart->addSeriesColumn($cashTitle, $cashTitle, $item->total);
             $displayData[] = [
                 'cash_id' => $cashTitle,
                 'total'   => $item->total,
@@ -61,106 +72,131 @@ class Dashboard extends Component
             ];
             $colorIndex++;
         }
-        $columnChart->setColumnWidth(30);
-        $categories = Objects::pluck('title', 'id')->toArray();
-        $dataOne = Record::where('type', 0)
-            ->whereYear('date', $this->selectedYear)
-            ->whereMonth('date', $this->selectedMonth)
-            ->where('cash_id', $this->cashOneCategory)
-            ->selectRaw('category_id, SUM(amount) as total')
-            ->groupBy('category_id')
-            ->get();
-        $pieChartOne = new PieChartModel();
-        $pieDataOne = [];
-        $i = 0;
-        foreach ($dataOne as $item) {
-            $category = \App\Models\ObjectCategories::find($item->category_id);
-            $categoryTitle = $category ? $category->title : "Категория {$item->category_id}";
-            $currentColor = $colors[$i % count($colors)];
-            $pieChartOne->addSlice($categoryTitle, (float)$item->total, $currentColor);
-            $pieDataOne[] = [
-                'category' => $categoryTitle,
-                'total'    => $item->total,
-                'color'    => $currentColor,
-            ];
-            $i++;
-        }
+        $xCategories = array_values(array_unique($xCategories));
 
-        $dataTwo = Record::where('type', 0)
-            ->whereYear('date', $this->selectedYear)
-            ->whereMonth('date', $this->selectedMonth)
-            ->where('cash_id', $this->cashTwoCategory)
-            ->selectRaw('category_id, SUM(amount) as total')
-            ->groupBy('category_id')
-            ->get();
-        $pieChartTwo = new PieChartModel();
-        $pieDataTwo = [];
-        $i = 0;
-        foreach ($dataTwo as $item) {
-            $categoryTitle = $categories[$item->category_id] ?? "Категория {$item->category_id}";
-            $currentColor = $colors[$i % count($colors)];
-            $pieChartTwo->addSlice($categoryTitle, (float)$item->total, $currentColor);
-            $pieDataTwo[] = [
-                'category' => $categoryTitle,
-                'total'    => $item->total,
-                'color'    => $currentColor,
-            ];
-            $i++;
-        }
 
-        $dataThree = Record::where('type', 0)
-            ->whereYear('date', $this->selectedYear)
-            ->whereMonth('date', $this->selectedMonth)
-            ->where('cash_id', $this->cashOneCounter)
-            ->selectRaw('object_id, SUM(amount) as total')
-            ->groupBy('object_id')
+        $config = [
+            'chart' => [
+                'type' => 'bar',
+            ],
+            'plotOptions' => [
+                'bar' => [
+                    'columnWidth' => '40%',
+                    'distributed' => true,
+                    'dataLabels' => [
+                        'position' => 'top',
+                    ],
+                ],
+            ],
+            'grid' => [
+                'padding' => [
+                    'left'  => 20,
+                    'right' => 20,
+                ],
+            ],
+            'xAxis' => [
+                'categories' => $xCategories,
+                'labels' => [
+                    'show' => true,
+                ],
+            ],
+            'legend' => [
+                'onItemClick' => [
+                    'toggleDataSeries' => true,
+                ],
+            ],
+        ];
+
+        $cashChart->setJsonConfig($config);
+
+
+
+        $categories = \App\Models\ObjectCategories::pluck('title', 'id')->toArray();
+
+        $recordsByCat = Record::where('type', 0)
+            ->whereBetween('date', [$this->startDate, $this->endDate])
+            ->whereIn('cash_id', $this->selectedCashes)
+            ->selectRaw('cash_id, category_id, SUM(amount) as total')
+            ->groupBy('cash_id', 'category_id')
             ->get();
 
-        $donutChartOne = new PieChartModel();
-        $donutDataOne = [];
-        $i = 0;
-        foreach ($dataThree as $item) {
-            $object = \App\Models\Objects::find($item->object_id);
-            $objectTitle = $object ? $object->title : "Объект {$item->object_id}";
-            $currentColor = $colors[$i % count($colors)];
-            $donutChartOne->addSlice($objectTitle, (float)$item->total, $currentColor);
-            $donutDataOne[] = [
-                'object' => $objectTitle,
-                'total'  => $item->total,
-                'color'  => $currentColor,
-            ];
-            $i++;
+        $stackedCatData = [];
+        foreach ($recordsByCat as $record) {
+            $stackedCatData[$record->category_id][$record->cash_id] = $record->total;
         }
-        $donutChartOne->asDonut();
 
-        $dataFour = Record::where('type', 0)
-            ->whereYear('date', $this->selectedYear)
-            ->whereMonth('date', $this->selectedMonth)
-            ->where('cash_id', $this->cashTwoCounter)
-            ->selectRaw('object_id, SUM(amount) as total')
-            ->groupBy('object_id')
+        // Группируем категории по названию (если у нескольких category_id одинаковое название)
+        $groupedCategories = [];
+        foreach ($categories as $catId => $catName) {
+            $groupedCategories[$catName][] = $catId;
+        }
+
+        $catSummary = [];
+        foreach ($groupedCategories as $catName => $catIds) {
+            foreach ($this->selectedCashes as $cashId) {
+                $total = 0;
+                foreach ($catIds as $id) {
+                    $total += isset($stackedCatData[$id][$cashId]) ? $stackedCatData[$id][$cashId] : 0;
+                }
+                $cashTitle = $this->allCashes[$cashId] ?? $cashId;
+                $catSummary[$catName][$cashTitle] = $total;
+            }
+        }
+
+        $catStackedChart = new ColumnChartModel();
+        $catStackedChart->multiColumn()->stacked()->setColumnWidth(30);
+        foreach ($catSummary as $catName => $cashTotals) {
+            foreach ($cashTotals as $cashTitle => $total) {
+                $catStackedChart->addSeriesColumn($cashTitle, $catName, $total);
+            }
+        }
+        $catStackedChart->jsonConfig = [
+            'xAxis' => [
+                'categories' => array_keys($catSummary),
+                'labels' => ['show' => 1]
+            ],
+        ];
+
+        // Расходы по объектам
+        $objectsList = \App\Models\Objects::pluck('title', 'id')->toArray();
+        $recordsByObj = Record::where('type', 0)
+            ->whereBetween('date', [$this->startDate, $this->endDate])
+            ->whereIn('cash_id', $this->selectedCashes)
+            ->selectRaw('cash_id, object_id, SUM(amount) as total')
+            ->groupBy('cash_id', 'object_id')
             ->get();
 
-        $donutChartTwo = new PieChartModel();
-        $donutDataTwo = [];
-        $i = 0;
-        foreach ($dataFour as $item) {
-            $object = \App\Models\Objects::find($item->object_id);
-            $objectTitle = $object ? $object->title : "Объект {$item->object_id}";
-            $currentColor = $colors[$i % count($colors)];
-            $donutChartTwo->addSlice($objectTitle, (float)$item->total, $currentColor);
-            $donutDataTwo[] = [
-                'object' => $objectTitle,
-                'total'  => $item->total,
-                'color'  => $currentColor,
-            ];
-            $i++;
+        $stackedObjData = [];
+        foreach ($recordsByObj as $record) {
+            $stackedObjData[$record->object_id][$record->cash_id] = $record->total;
         }
-        $donutChartTwo->asDonut();
 
+        $objSummary = [];
+        foreach ($objectsList as $objId => $objTitle) {
+            foreach ($this->selectedCashes as $cashId) {
+                $total = isset($stackedObjData[$objId][$cashId]) ? $stackedObjData[$objId][$cashId] : 0;
+                $cashTitle = $this->allCashes[$cashId] ?? $cashId;
+                $objSummary[$objTitle][$cashTitle] = $total;
+            }
+        }
+
+        $objStackedChart = new ColumnChartModel();
+        $objStackedChart->multiColumn()->stacked()->setColumnWidth(30);
+        foreach ($objSummary as $objTitle => $cashTotals) {
+            foreach ($cashTotals as $cashTitle => $total) {
+                $objStackedChart->addSeriesColumn($cashTitle, $objTitle, $total);
+            }
+        }
+        $objStackedChart->jsonConfig = [
+            'xAxis' => [
+                'categories' => array_keys($objSummary),
+                'labels' => ['show' => 1]
+            ],
+        ];
+
+        // Расходы по проектам
         $dataProjects = Record::where('type', 0)
-            ->whereYear('date', $this->selectedYear)
-            ->whereMonth('date', $this->selectedMonth)
+            ->whereBetween('date', [$this->startDate, $this->endDate])
             ->selectRaw('project_id, SUM(amount) as total')
             ->groupBy('project_id')
             ->get();
@@ -184,18 +220,20 @@ class Dashboard extends Component
         $projectChart->setColumnWidth(30);
 
         return view('livewire.dashboard', [
-            'chart'           => $columnChart,
-            'displayData'     => $displayData,
-            'pieChartOne'     => $pieChartOne,
-            'pieDataOne'      => $pieDataOne,
-            'pieChartTwo'     => $pieChartTwo,
-            'pieDataTwo'      => $pieDataTwo,
-            'donutChartOne' => $donutChartOne,
-            'donutDataOne'  => $donutDataOne,
-            'donutChartTwo' => $donutChartTwo,
-            'donutDataTwo'  => $donutDataTwo,
-            'projectChart'    => $projectChart,
-            'projectData'  => $projectData,
+            'chart'             => $cashChart,
+            'displayData'       => $displayData,
+            'catStackedChart'   => $catStackedChart,
+            'objStackedChart'   => $objStackedChart,
+            'projectChart'      => $projectChart,
+            'projectData'       => $projectData,
+            'catSummary'        => $catSummary,
+            'objSummary'        => $objSummary,
         ]);
+    }
+
+    public function export()
+    {
+        $userName = auth()->user()->name;
+        return Excel::download(new DashboardExport($this->startDate, $this->endDate, $this->cashRegisters, $userName), 'dashboard.xlsx');
     }
 }
