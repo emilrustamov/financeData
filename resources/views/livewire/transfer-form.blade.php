@@ -35,7 +35,7 @@
                                 <i class="bi bi-pencil-square"></i>
                             </button>
                             <button class="btn btn-sm btn-danger"
-                                wire:click="confirmDeleteTransfer({{ $transfer->id }})">
+                                wire:click="deleteTransfer({{ $transfer->id }})">
                                 <i class="bi bi-trash"></i>
                             </button>
                         </td>
