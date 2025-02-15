@@ -5,10 +5,7 @@ namespace App\Livewire;
 use Livewire\Component;
 use Carbon\Carbon;
 use App\Models\Record;
-use App\Models\Cash;
 use Asantibanez\LivewireCharts\Models\ColumnChartModel;
-use Asantibanez\LivewireCharts\Models\PieChartModel;
-use App\Models\Objects;
 use Maatwebsite\Excel\Facades\Excel;
 use App\Exports\DashboardExport;
 
@@ -51,20 +48,20 @@ class Dashboard extends Component
             ->selectRaw('cash_id, SUM(amount) as total')
             ->groupBy('cash_id')
             ->get();
-
+    
         $cashChart = new ColumnChartModel();
-        $cashChart->multiColumn()->setColumnWidth(30);
-
+        $cashChart->setColumnWidth(30);
+    
         $xCategories = [];
         $displayData = [];
         $colorIndex = 0;
         foreach ($data as $item) {
             $cashTitle = $this->allCashes[$item->cash_id] ?? "Касса {$item->cash_id}";
             $color = $colors[$colorIndex % count($colors)];
-
+    
             $xCategories[] = $cashTitle;
-     
-            $cashChart->addSeriesColumn($cashTitle, $cashTitle, $item->total);
+    
+            $cashChart->addColumn($cashTitle, $item->total, $color);
             $displayData[] = [
                 'cash_id' => $cashTitle,
                 'total'   => $item->total,
@@ -73,8 +70,7 @@ class Dashboard extends Component
             $colorIndex++;
         }
         $xCategories = array_values(array_unique($xCategories));
-
-
+    
         $config = [
             'chart' => [
                 'type' => 'bar',
@@ -106,10 +102,8 @@ class Dashboard extends Component
                 ],
             ],
         ];
-
+    
         $cashChart->setJsonConfig($config);
-
-
 
         $categories = \App\Models\ObjectCategories::pluck('title', 'id')->toArray();
 
@@ -124,8 +118,7 @@ class Dashboard extends Component
         foreach ($recordsByCat as $record) {
             $stackedCatData[$record->category_id][$record->cash_id] = $record->total;
         }
-
-        // Группируем категории по названию (если у нескольких category_id одинаковое название)
+        
         $groupedCategories = [];
         foreach ($categories as $catId => $catName) {
             $groupedCategories[$catName][] = $catId;
@@ -196,17 +189,18 @@ class Dashboard extends Component
 
         // Расходы по проектам
         $dataProjects = Record::where('type', 0)
-            ->whereBetween('date', [$this->startDate, $this->endDate])
-            ->selectRaw('project_id, SUM(amount) as total')
-            ->groupBy('project_id')
-            ->get();
-
-        $projectChart = new ColumnChartModel();
-        $i = 0;
-        $projectData = [];
-        foreach ($dataProjects as $item) {
-            $project = \App\Models\Projects::find($item->project_id);
-            $projectTitle = $project ? $project->title : "Проект {$item->project_id}";
+        ->whereBetween('date', [$this->startDate, $this->endDate])
+        ->selectRaw('project_id, SUM(amount) as total')
+        ->groupBy('project_id')
+        ->get();
+    
+    $projectChart = new ColumnChartModel();
+    $i = 0;
+    $projectData = [];
+    foreach ($dataProjects as $item) {
+        $project = \App\Models\Projects::find($item->project_id);
+        if ($project) {
+            $projectTitle = $project->title;
             $color = $colors[$i % count($colors)];
             $projectChart->addColumn($projectTitle, $item->total, $color);
             $projectData[] = [
@@ -216,8 +210,9 @@ class Dashboard extends Component
             ];
             $i++;
         }
-        $projectChart->setHorizontal(true);
-        $projectChart->setColumnWidth(30);
+    }
+    $projectChart->setHorizontal(true);
+    $projectChart->setColumnWidth(30);
 
         return view('livewire.dashboard', [
             'chart'             => $cashChart,
