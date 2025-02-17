@@ -73,7 +73,7 @@ class RecordForm extends Component
         'link' => 'nullable|string',
         'titleTemplate' => 'required_if:isTemplate,true|string|max:100',
         'icon' => 'required_if:isTemplate,true|string|max:255',
-        'isDebt' => 'boolean', 
+        'isDebt' => 'boolean',
     ];
 
 
@@ -83,11 +83,11 @@ class RecordForm extends Component
         $this->recordId = $id;
         $this->isTemplate = $isTemplate;
 
-    
+
         $this->loadAvailableCashRegisters();
 
         if ($id) {
-    
+
             if ($isTemplate) {
                 $template = Template::findOrFail($id);
                 $this->titleTemplate = $template->title_template;
@@ -112,7 +112,7 @@ class RecordForm extends Component
                 $this->link = $record->Link;
                 $this->object = $record->Object;
                 $this->selectedCashRegister = $record->cash_id;
-                $this->isDebt = $record->is_debt; 
+                $this->isDebt = $record->is_debt;
             }
         } else {
             $this->articleType = null;
@@ -123,7 +123,7 @@ class RecordForm extends Component
             $this->exchangeRate = null;
             $this->link = null;
             $this->object = null;
-            $this->isDebt = false; 
+            $this->isDebt = false;
 
             if ($this->availableCashRegisters->count() === 1) {
                 $cashRegister = $this->availableCashRegisters->first();
@@ -143,7 +143,7 @@ class RecordForm extends Component
     {
         $user = Auth::user();
         if ($user->is_admin) {
-            $this->availableCashRegisters = Cash::all(); 
+            $this->availableCashRegisters = Cash::all();
         } else {
             $this->availableCashRegisters = $user->availableCashRegisters;
         }
@@ -248,22 +248,22 @@ class RecordForm extends Component
             'Link' => $this->link,
             'Object' => $this->object,
             'cash_id' => $this->selectedCashRegister,
-            'is_debt' => $this->isDebt, 
+            'is_debt' => $this->isDebt,
         ];
 
         if ($this->isTemplate) {
-      
+
             $data['title_template'] = $this->titleTemplate;
             $data['icon'] = $this->icon;
             $data['user_id'] = Auth::id();
 
             Template::updateOrCreate(['id' => $this->recordId], $data);
         } else {
-        
+
             Record::updateOrCreate(['id' => $this->recordId], $data);
         }
 
-      
+
         $this->resetExcept([
             'defaultExchangeRates',
             'templates',
@@ -289,7 +289,7 @@ class RecordForm extends Component
             $this->dateFilter = $this->filterType === 'daily' ? now()->format('Y-m-d') : null;
         }
 
-        $this->getDailySummary(); 
+        $this->getDailySummary();
         $this->calculateTotalBalance();
     }
 
@@ -303,13 +303,13 @@ class RecordForm extends Component
         $record = Record::findOrFail($id);
         $this->articleType = $record->ArticleType;
         $this->articleDescription = $record->ArticleDescription;
-        $this->amount = $record->original_amount; 
-        $this->currency = $record->original_currency; 
+        $this->amount = $record->original_amount;
+        $this->currency = $record->original_currency;
         $this->date = $record->Date;
         $this->exchangeRate = $record->ExchangeRate;
         $this->link = $record->Link;
         $this->object = $record->Object;
-        $this->recordId = null; 
+        $this->recordId = null;
         $this->isModalOpen = true;
 
         $availableCashRegisterIds = auth()->user()->availableCashRegisters()->pluck('cash.id')->toArray();
@@ -756,11 +756,31 @@ class RecordForm extends Component
         // Рассчитываем ежедневные итоги
         $dailySummary = $this->getDailySummary();
 
+        // Рассчитываем баланс для каждой доступной кассы
+        $cashRegisterBalances = [];
+        foreach ($accessibleCashRegisters as $cashRegister) {
+            $totalIncome = Record::where('cash_id', $cashRegister->id)
+                ->where('ArticleType', 'Приход')
+                ->where('is_debt', false)
+                ->sum('original_amount');
+            $totalExpense = Record::where('cash_id', $cashRegister->id)
+                ->where('ArticleType', 'Расход')
+                ->where('is_debt', false)
+                ->sum('original_amount');
+            $balance = $totalIncome - $totalExpense;
+            $cashRegisterBalances[] = [
+                'title' => $cashRegister->title,
+                'balance' => $balance,
+                'currency' => $cashRegister->currency->currency,
+            ];
+        }
+
         return view('livewire.record-form', [
             'records' => $records,
             'dailySummary' => $dailySummary,
             'showBalance' => $this->filterType === 'daily',
             'availableCashRegisters' => $accessibleCashRegisters,
+            'cashRegisterBalances' => $cashRegisterBalances, // Добавляем баланс касс
         ]);
     }
 }

@@ -52,9 +52,28 @@
             </div>
         @endforeach
     </div>
-
-
-
+    <div class="mt-3">
+        @if (count($availableCashRegisters) > 1)
+            <div class="row row-cols-1 row-cols-md-3 g-4">
+                @foreach ($cashRegisterBalances as $cashRegister)
+                    <div class="col">
+                        <div class="card h-100">
+                            <div class="card-body">
+                                <h5 class="card-title">{{ $cashRegister['title'] }}</h5>
+                                <p class="card-text">
+                                    Баланс: <span
+                                        style="color: {{ $cashRegister['balance'] > 0 ? 'green' : ($cashRegister['balance'] < 0 ? 'red' : 'gray') }}">
+                                        {{ number_format($cashRegister['balance'], 2) }}
+                                        {{ $cashRegister['currency'] }}
+                                    </span>
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                @endforeach
+            </div>
+        @endif
+    </div>
     <div class="card mt-3">
         <div class="card-header">
             <div class="d-flex align-items-center justify-content-between">
@@ -289,8 +308,11 @@
         </thead>
         <tbody>
             @foreach ($records as $record)
-                @if ((!$articleTypeFilter || $record->ArticleType === $articleTypeFilter) &&
-                     (!$debtFilter || ($debtFilter === 'true' && $record->is_debt) || ($debtFilter === 'false' && !$record->is_debt)))
+                @if (
+                    (!$articleTypeFilter || $record->ArticleType === $articleTypeFilter) &&
+                        (!$debtFilter ||
+                            ($debtFilter === 'true' && $record->is_debt) ||
+                            ($debtFilter === 'false' && !$record->is_debt)))
                     <tr>
                         <td
                             class="@if ($record->ArticleType === 'Приход') bg-success text-white @elseif ($record->ArticleType === 'Расход') bg-danger text-white @endif">
