@@ -148,8 +148,15 @@ class ObjectForm extends Component
 
     public function deleteCategory()
     {
+        // Check if there are any records associated with the category
         if (Record::where('category_id', $this->categoryId)->exists()) {
             session()->flash('error', 'Невозможно удалить категорию: к ней привязаны транзакции.');
+            return;
+        }
+
+        // Check if there are any objects associated with the category
+        if (Objects::where('category_id', $this->categoryId)->exists()) {
+            session()->flash('error', 'Невозможно удалить категорию: к ней привязаны контрагенты.');
             return;
         }
 

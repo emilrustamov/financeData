@@ -53,4 +53,8 @@ class Record extends Model
     {
         return $this->hasOne(Transfer::class, 'to_record_id');
     }
+    public function user()
+    {
+        return $this->belongsTo(User::class);
+    }
 }

@@ -8,6 +8,8 @@ use App\Models\Record;
 use Asantibanez\LivewireCharts\Models\ColumnChartModel;
 use Maatwebsite\Excel\Facades\Excel;
 use App\Exports\DashboardExport;
+use App\Models\Projects;
+use App\Models\ObjectCategories;
 
 class Dashboard extends Component
 {
@@ -28,7 +30,9 @@ class Dashboard extends Component
 
         $user = auth()->user();
         $this->cashRegisters = $user->cashes;
-        $this->allCashes = $this->cashRegisters->pluck('title', 'id')->toArray();
+        $this->allCashes = $this->cashRegisters->mapWithKeys(function ($cash) {
+            return [$cash->id => $cash->title . " (" . $cash->currency->symbol . ")"];
+        })->toArray();
         $this->selectedCashes = array_keys($this->allCashes);
 
         $this->cashOneCategory = array_key_first($this->allCashes);
@@ -48,29 +52,31 @@ class Dashboard extends Component
             ->selectRaw('cash_id, SUM(amount) as total')
             ->groupBy('cash_id')
             ->get();
-    
+
         $cashChart = new ColumnChartModel();
         $cashChart->setColumnWidth(30);
-    
+
         $xCategories = [];
         $displayData = [];
         $colorIndex = 0;
         foreach ($data as $item) {
-            $cashTitle = $this->allCashes[$item->cash_id] ?? "Касса {$item->cash_id}";
+            $cash = $this->cashRegisters->firstWhere('id', $item->cash_id);
+            $cashTitle = $cash->title . " (" . $cash->currency->symbol . ")";
             $color = $colors[$colorIndex % count($colors)];
-    
+
             $xCategories[] = $cashTitle;
-    
+
             $cashChart->addColumn($cashTitle, $item->total, $color);
             $displayData[] = [
-                'cash_id' => $cashTitle,
-                'total'   => $item->total,
-                'color'   => $color,
+                'cash_id'  => $cashTitle,
+                'total'    => $item->total,
+                'color'    => $color,
+                'currency' => $cash->currency->symbol,  // добавлено
             ];
             $colorIndex++;
         }
         $xCategories = array_values(array_unique($xCategories));
-    
+
         $config = [
             'chart' => [
                 'type' => 'bar',
@@ -102,10 +108,11 @@ class Dashboard extends Component
                 ],
             ],
         ];
-    
+
         $cashChart->setJsonConfig($config);
 
-        $categories = \App\Models\ObjectCategories::pluck('title', 'id')->toArray();
+        $categories = ObjectCategories::whereJsonContains('users', auth()->user()->id)
+            ->pluck('title', 'id')->toArray();
 
         $recordsByCat = Record::where('type', 0)
             ->whereBetween('date', [$this->startDate, $this->endDate])
@@ -118,7 +125,7 @@ class Dashboard extends Component
         foreach ($recordsByCat as $record) {
             $stackedCatData[$record->category_id][$record->cash_id] = $record->total;
         }
-        
+
         $groupedCategories = [];
         foreach ($categories as $catId => $catName) {
             $groupedCategories[$catName][] = $catId;
@@ -151,7 +158,8 @@ class Dashboard extends Component
         ];
 
         // Расходы по объектам
-        $objectsList = \App\Models\Objects::pluck('title', 'id')->toArray();
+        $objectsList = \App\Models\Objects::whereJsonContains('users', auth()->user()->id)
+            ->pluck('title', 'id')->toArray();
         $recordsByObj = Record::where('type', 0)
             ->whereBetween('date', [$this->startDate, $this->endDate])
             ->whereIn('cash_id', $this->selectedCashes)
@@ -188,31 +196,61 @@ class Dashboard extends Component
         ];
 
         // Расходы по проектам
+
         $dataProjects = Record::where('type', 0)
-        ->whereBetween('date', [$this->startDate, $this->endDate])
-        ->selectRaw('project_id, SUM(amount) as total')
-        ->groupBy('project_id')
-        ->get();
-    
-    $projectChart = new ColumnChartModel();
-    $i = 0;
-    $projectData = [];
-    foreach ($dataProjects as $item) {
-        $project = \App\Models\Projects::find($item->project_id);
-        if ($project) {
-            $projectTitle = $project->title;
-            $color = $colors[$i % count($colors)];
-            $projectChart->addColumn($projectTitle, $item->total, $color);
-            $projectData[] = [
-                'project' => $projectTitle,
-                'total'   => $item->total,
-                'color'   => $color,
-            ];
-            $i++;
+            ->whereBetween('date', [$this->startDate, $this->endDate])
+            ->selectRaw('project_id, cash_id, SUM(amount) as total')
+            ->groupBy('project_id', 'cash_id')
+            ->get();
+
+        $projectChart = new ColumnChartModel();
+        $projectChart->setHorizontal(true);
+        $projectChart->setColumnWidth(30);
+        $i = 0;
+        $projectData = [];
+
+        // Сгруппируем данные по проекту и валюте
+        $tempData = [];
+        foreach ($dataProjects as $item) {
+            $project = Projects::where('id', $item->project_id)
+                ->whereJsonContains('users', auth()->user()->id)
+                ->first();
+            if ($project) {
+                // Получаем кассу для записи, чтобы узнать валюту
+                $cash = $this->cashRegisters->firstWhere('id', $item->cash_id);
+                $currency = $cash ? $cash->currency->symbol : 'TMT';
+                $projectId = $project->id;
+                $projectTitle = $project->title;
+                // Сохраним название проекта
+                $tempData[$projectId]['title'] = $projectTitle;
+                // Суммируем расходы по валюте
+                if (isset($tempData[$projectId][$currency])) {
+                    $tempData[$projectId][$currency] += $item->total;
+                } else {
+                    $tempData[$projectId][$currency] = $item->total;
+                }
+            }
         }
-    }
-    $projectChart->setHorizontal(true);
-    $projectChart->setColumnWidth(30);
+
+        // Формируем данные для диаграммы и таблицы
+        foreach ($tempData as $projectId => $data) {
+            $projectTitle = $data['title'];
+            foreach ($data as $key => $total) {
+                if ($key === 'title') continue;
+                $label = $projectTitle . " (" . $key . ")";
+                $color = $colors[$i % count($colors)];
+                $projectChart->addColumn($label, $total, $color);
+                $projectData[] = [
+                    'project' => $label,
+                    'total'   => $total,
+                    'color'   => $color,
+                    'currency' => $key,
+                ];
+                $i++;
+            }
+        }
+        $projectChart->setHorizontal(true);
+        $projectChart->setColumnWidth(30);
 
         return view('livewire.dashboard', [
             'chart'             => $cashChart,

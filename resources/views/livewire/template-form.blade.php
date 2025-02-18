@@ -1,11 +1,11 @@
 <div>
-    <div class="mt-3">
+    <div class="mt-1">
         <div class="floating-button2">
             <button class="btn btn-primary rounded-circle shadow" wire:click="openForm()" title="Добавить шаблон">
                 <i class="bi bi-file-earmark-plus fs-4"></i>
             </button>
         </div>
-
+    
         <div class="row row-cols-6 g-3">
             @foreach ($templates as $template)
                 <div class="col">

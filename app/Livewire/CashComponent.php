@@ -4,6 +4,7 @@ namespace App\Livewire;
 
 use App\Models\Cash;
 use App\Models\User;
+use App\Models\Currency;
 use Livewire\Component;
 use Livewire\WithPagination;
 use App\Models\Record;
@@ -12,12 +13,13 @@ class CashComponent extends Component
 {
     use WithPagination;
 
-    public $title, $cashId, $userIds = [];
+    public $title, $cashId, $currency_id, $userIds = [];
     public $showForm = false;
 
     protected $rules = [
-        'title' => 'required|string|max:255',
-        'userIds' => 'array',
+        'title'       => 'required|string|max:255',
+        'userIds'     => 'array',
+        'currency_id' => 'required|exists:currencies,id'
     ];
 
     protected $listeners = ['deleteCashConfirmed'];
@@ -30,6 +32,7 @@ class CashComponent extends Component
         if ($id) {
             $cash = Cash::findOrFail($id);
             $this->title = $cash->title;
+            $this->currency_id = $cash->currency_id;
             $this->userIds = $cash->users->pluck('id')->toArray();
         }
 
@@ -44,21 +47,18 @@ class CashComponent extends Component
 
     public function saveCash()
     {
-        $this->validate([
-            'title' => 'required|string|max:255',
-            'userIds' => 'array',
-        ]);
+        $this->validate();
 
         if ($this->cashId) {
             $cash = Cash::findOrFail($this->cashId);
             $cash->update([
-                'title' => $this->title,
-
+                'title'       => $this->title,
+                'currency_id' => $this->currency_id,
             ]);
         } else {
             $cash = Cash::create([
-                'title' => $this->title,
-
+                'title'       => $this->title,
+                'currency_id' => $this->currency_id,
             ]);
         }
 
@@ -82,7 +82,6 @@ class CashComponent extends Component
             return;
         }
 
-        // Если связанных записей нет — удаляем
         Cash::findOrFail($this->cashId)->delete();
         $this->cashId = null;
         session()->flash('message', 'Касса удалена.');
@@ -92,8 +91,9 @@ class CashComponent extends Component
     public function render()
     {
         return view('livewire.cash-component', [
-            'cashes' => Cash::paginate(10),
-            'users' => User::all(),
+            'cashes'     => Cash::paginate(10),
+            'users'      => User::all(),
+            'currencies' => Currency::all(),
         ]);
     }
 }

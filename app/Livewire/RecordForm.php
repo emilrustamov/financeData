@@ -80,7 +80,13 @@ class RecordForm extends Component
             ->when($this->filterType === 'monthly', fn($q) => $q->whereBetween('date', [now()->startOfMonth(), now()->endOfMonth()]))
             ->when($this->filterType === 'custom' && $this->startDate && $this->endDate, fn($q) => $q->whereBetween('date', [$this->startDate, $this->endDate]))
             ->when(!is_null($this->typeFilter), fn($q) => $q->where('type', $this->typeFilter))
-            ->when($this->searchTerm && mb_strlen($this->searchTerm) >= 3, fn($q) => $q->where('description', 'like', '%' . $this->searchTerm . '%'));
+            ->when($this->searchTerm && mb_strlen($this->searchTerm) >= 3, function ($q) {
+                $q->where(function ($query) {
+                    $query->where('description', 'like', '%' . $this->searchTerm . '%')
+                        ->orWhereHas('category', fn($q) => $q->where('title', 'like', '%' . $this->searchTerm . '%'))
+                        ->orWhereHas('object', fn($q) => $q->where('title', 'like', '%' . $this->searchTerm . '%'));
+                });
+            });
     }
 
     public function openForm($id = null)

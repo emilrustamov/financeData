@@ -15,14 +15,17 @@ class TransferForm extends Component
     public $toCashId;
     public $amount;
     public $note;
+    public $exchangeRate; // новый параметр для курса обмена
     public $transferId = null;
     public $showForm = false;
+    public $transferDate;
 
     protected $rules = [
         'fromCashId' => 'required|exists:cashes,id|different:toCashId',
-        'toCashId' => 'required|exists:cashes,id|different:fromCashId',
-        'amount' => 'required|numeric|min:0',
-        'note' => 'nullable|string|max:255',
+        'toCashId'   => 'required|exists:cashes,id|different:fromCashId',
+        'amount'     => 'required|numeric|min:0',
+        'note'       => 'nullable|string|max:255',
+        // exchangeRate проверим условно в методе createTransfer
     ];
 
     protected $listeners = ['openForm'];
@@ -38,8 +41,12 @@ class TransferForm extends Component
             $this->toCashId = $transfer->to_cash_id;
             $this->amount = $transfer->amount;
             $this->note = $transfer->note;
+            // Если в комментарии был курс, его можно извлечь (по необходимости)
         } else {
-            $this->reset(['fromCashId', 'toCashId', 'amount', 'note']);
+            $this->reset(['fromCashId', 'toCashId', 'amount', 'note', 'exchangeRate']);
+        }
+        if (!$this->transferDate) {
+            $this->transferDate = now()->format('Y-m-d');
         }
 
         $this->showForm = true;
@@ -52,8 +59,19 @@ class TransferForm extends Component
 
     public function createTransfer()
     {
-        $this->validate();
+        $rules = $this->rules;
 
+        // Получаем кассы с валютами
+        $fromCash = Cash::with('currency')->find($this->fromCashId);
+        $toCash   = Cash::with('currency')->find($this->toCashId);
+
+        // Если валюты отличаются – курс обязателен
+        if ($fromCash && $toCash && $fromCash->currency->id != $toCash->currency->id) {
+            $rules['exchangeRate'] = 'required|numeric|min:0.0001';
+        }
+        $this->validate($rules);
+
+        // Если одна из касс закрыта
         if ($this->isCashClosed($this->fromCashId) || $this->isCashClosed($this->toCashId)) {
             session()->flash('error', 'Трансфер невозможен. Одна из касс закрыта.');
             return;
@@ -62,16 +80,24 @@ class TransferForm extends Component
         $data = [
             'from_cash_id' => $this->fromCashId,
             'to_cash_id'   => $this->toCashId,
-            'amount'       => $this->amount,
+            'amount'       => $this->amount, // исходная сумма (в валюте исходной кассы)
             'user_id'      => Auth::id(),
-            'note'         => $this->note ?: "Трансфер с кассы " . Cash::find($this->fromCashId)->title . " на кассу " . Cash::find($this->toCashId)->title,
         ];
 
-        // Если обновляем существующий трансфер
+        // Если валюты отличаются, пересчитываем сумму для целевой кассы
+        if ($fromCash && $toCash && $fromCash->currency->id != $toCash->currency->id) {
+            $toAmount = $this->amount * $this->exchangeRate;
+            // Добавляем курс в комментарий
+            $data['note'] = ($this->note ?: "Трансфер с кассы " . $fromCash->title . " на кассу " . $toCash->title)
+                . " | Курс: " . $this->exchangeRate;
+        } else {
+            $data['note'] = $this->note ?: "Трансфер с кассы " . $fromCash->title . " на кассу " . $toCash->title;
+        }
+
+        // При обновлении трансфера удаляем старые записи (если есть) и создаём новые с перерасчётом
         if ($this->transferId) {
             $transfer = Transfer::findOrFail($this->transferId);
 
-            // Удаляем старые записи, если они существуют
             if ($transfer->from_record_id) {
                 Record::destroy($transfer->from_record_id);
             }
@@ -79,37 +105,36 @@ class TransferForm extends Component
                 Record::destroy($transfer->to_record_id);
             }
 
-            // Создаем новые записи
+            // Создаем запись для исходной кассы (снимается исходная сумма)
             $fromRecord = Record::create([
                 'type'        => 0,
                 'description' => $data['note'],
                 'amount'      => $this->amount,
-                'date'        => now()->format('Y-m-d'),
+                'date'        => $this->transferDate,
                 'cash_id'     => $this->fromCashId,
                 'user_id'     => Auth::id(),
             ]);
 
+            // Создаем запись для целевой кассы
             $toRecord = Record::create([
                 'type'        => 1,
                 'description' => $data['note'],
-                'amount'      => $this->amount,
-                'date'        => now()->format('Y-m-d'),
+                'amount'      => isset($toAmount) ? $toAmount : $this->amount,
+                'date'        => $this->transferDate,
                 'cash_id'     => $this->toCashId,
                 'user_id'     => Auth::id(),
             ]);
 
-            // Обновляем трансфер с идентификаторами записей
             $data['from_record_id'] = $fromRecord->id;
             $data['to_record_id']   = $toRecord->id;
             $transfer->update($data);
         } else {
-            // Если создаем новый трансфер:
-            // Сначала создаем записи для расхода и прихода
+            // Создаем новые записи для трансфера
             $fromRecord = Record::create([
                 'type'        => 0,
                 'description' => $data['note'],
                 'amount'      => $this->amount,
-                'date'        => now()->format('Y-m-d'),
+                'date'        => $this->transferDate,
                 'cash_id'     => $this->fromCashId,
                 'user_id'     => Auth::id(),
             ]);
@@ -117,16 +142,15 @@ class TransferForm extends Component
             $toRecord = Record::create([
                 'type'        => 1,
                 'description' => $data['note'],
-                'amount'      => $this->amount,
-                'date'        => now()->format('Y-m-d'),
+                'amount'      => isset($toAmount) ? $toAmount : $this->amount,
+                'date'        => $this->transferDate,
                 'cash_id'     => $this->toCashId,
                 'user_id'     => Auth::id(),
             ]);
 
-            // Передаем идентификаторы записей в массив данных и создаем трансфер
             $data['from_record_id'] = $fromRecord->id;
             $data['to_record_id']   = $toRecord->id;
-            $transfer = Transfer::create($data);
+            Transfer::create($data);
         }
 
         session()->flash('message', $this->transferId ? 'Трансфер успешно обновлен.' : 'Трансфер успешно создан.');
@@ -151,19 +175,20 @@ class TransferForm extends Component
 
     public function isCashClosed($cashId)
     {
-        return CashRegister::where('cash_id', $cashId)
-            ->whereDate('date', now()->format('Y-m-d'))
+        return \App\Models\CashRegister::where('cash_id', $cashId)
+            ->whereDate('date', $this->transferDate)
             ->exists();
     }
 
     public function render()
     {
         $transfers = Transfer::with(['fromCash', 'toCash', 'user'])->paginate(20);
-        $cashes = Cash::all();
+        // Загружаем кассы вместе с валютой
+        $cashes = Cash::with('currency')->get();
 
         return view('livewire.transfer-form', [
             'transfers' => $transfers,
-            'cashes' => $cashes,
+            'cashes'    => $cashes,
         ]);
     }
 }

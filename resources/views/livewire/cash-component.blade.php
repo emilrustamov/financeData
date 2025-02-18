@@ -10,11 +10,12 @@
             <i class="bi bi-plus-circle fs-4"></i>
         </button>
     </div>
-    <table class="table table-bordered  table-hover">
+    <table class="table table-bordered table-hover">
         <thead class="table-light">
             <tr>
                 <th>#</th>
                 <th>Название</th>
+                <th>Валюта</th>
                 <th>Пользователи</th>
                 <th>Действия</th>
             </tr>
@@ -22,13 +23,14 @@
         <tbody>
             @if ($cashes->isEmpty())
                 <tr>
-                    <td colspan="4" class="text-center">Нет данных о кассах.</td>
+                    <td colspan="5" class="text-center">Нет данных о кассах.</td>
                 </tr>
             @else
                 @foreach ($cashes as $cash)
                     <tr>
                         <td>{{ $cash->id }}</td>
                         <td>{{ $cash->title }}</td>
+                        <td>{{ $cash->currency ? $cash->currency->symbol : '-' }}</td>
                         <td>{{ $cash->users->pluck('name')->implode(', ') }}</td>
                         <td>
                             <button class="btn btn-sm btn-warning" wire:click="openForm({{ $cash->id }})">
@@ -63,6 +65,16 @@
                         </div>
 
                         <div class="mb-3">
+                            <label for="currency" class="form-label">Валюта</label>
+                            <select id="currency" class="form-select" wire:model="currency_id" required>
+                                <option value="">Выберите валюту</option>
+                                @foreach ($currencies as $currency)
+                                    <option value="{{ $currency->id }}">{{ $currency->symbol }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+
+                        <div class="mb-3">
                             <label class="form-label">Пользователи с доступом</label>
                             <div>
                                 @foreach ($users as $user)
@@ -78,8 +90,9 @@
                         </div>
 
                         <div class="d-flex justify-content-end">
-                            <button type="submit"
-                                class="btn btn-success">{{ $cashId ? 'Обновить' : 'Создать' }}</button>
+                            <button type="submit" class="btn btn-success">
+                                {{ $cashId ? 'Обновить' : 'Создать' }}
+                            </button>
                         </div>
                     </form>
                 </div>

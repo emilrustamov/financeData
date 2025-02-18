@@ -1,5 +1,5 @@
 
-import 'bootstrap/dist/js/bootstrap.bundle.min.js';
+// import 'bootstrap/dist/js/bootstrap.bundle.min.js';
 import './bootstrap';
 import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';

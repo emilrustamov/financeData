@@ -52,15 +52,26 @@
                                         style="display:inline-block;width:10px;height:10px;background-color:{{ $data['color'] }};margin-right:5px;"></span>
                                     {{ $data['cash_id'] }}
                                 </td>
-                                <td>{{ number_format($data['total'], 2, '.', ' ') }} TMT</td>
+                                <td>{{ number_format($data['total'], 2, '.', ' ') }} {{ $data['currency'] }}</td>
                             </tr>
                         @endforeach
                         @php
-                            $totalCash = array_sum(array_column($displayData, 'total'));
+                            $totals = [];
+                            foreach ($displayData as $d) {
+                                $totals[$d['currency']] = ($totals[$d['currency']] ?? 0) + $d['total'];
+                            }
                         @endphp
                         <tr class="fw-bold">
                             <td>Итого</td>
-                            <td>{{ number_format($totalCash, 2, '.', ' ') }} TMT</td>
+                            <td>
+                                @foreach ($totals as $currency => $sum)
+                                    {{ $currency }}: {{ number_format($sum, 2, '.', ' ') }}
+                                    @if (!$loop->last)
+                                        <br>
+                                    @endif
+                                @endforeach
+                            </td>
+                        </tr>
                         </tr>
                 </table>
             </div>
@@ -95,7 +106,21 @@
                     @foreach ($catSummary as $catName => $cashData)
                         <tr>
                             <td>{{ $catName }}</td>
-                            <td>{{ array_sum($cashData) }}</td>
+                            <td>
+                                @php
+                                    $rowTotals = [];
+                                    foreach ($cashData as $cashTitle => $value) {
+                                        preg_match('/\((.*?)\)$/', $cashTitle, $matches);
+                                        $currency = $matches[1] ?? 'TMT';
+                                        $rowTotals[$currency] = ($rowTotals[$currency] ?? 0) + $value;
+                                    }
+                                @endphp
+                                @foreach ($rowTotals as $currency => $total)
+                                    {{ $currency }}: {{ number_format($total, 2, '.', ' ') }}@if (!$loop->last)
+                                        <br>
+                                    @endif
+                                @endforeach
+                            </td>
                             @foreach ($cashData as $value)
                                 <td>{{ $value }}</td>
                             @endforeach
@@ -134,7 +159,21 @@
                     @foreach ($objSummary as $objTitle => $cashData)
                         <tr>
                             <td>{{ $objTitle }}</td>
-                            <td>{{ array_sum($cashData) }}</td>
+                            <td>
+                                @php
+                                    $rowTotals = [];
+                                    foreach ($cashData as $cashTitle => $value) {
+                                        preg_match('/\((.*?)\)$/', $cashTitle, $matches);
+                                        $currency = $matches[1] ?? 'TMT';
+                                        $rowTotals[$currency] = ($rowTotals[$currency] ?? 0) + $value;
+                                    }
+                                @endphp
+                                @foreach ($rowTotals as $currency => $total)
+                                    {{ $currency }}: {{ number_format($total, 2, '.', ' ') }}@if (!$loop->last)
+                                        <br>
+                                    @endif
+                                @endforeach
+                            </td>
                             @foreach ($cashData as $value)
                                 <td>{{ $value }}</td>
                             @endforeach
@@ -168,20 +207,28 @@
                     <tbody>
                         @foreach ($projectData as $data)
                             <tr>
+                                <td>{{ $data['project'] }}</td>
                                 <td>
-                                    <span
-                                        style="display:inline-block;width:10px;height:10px;background-color:{{ $data['color'] }};margin-right:5px;"></span>
-                                    {{ $data['project'] }}
+                                    {{ number_format((float) $data['total'], 2, '.', ' ') }} {{ $data['currency'] }}
                                 </td>
-                                <td>{{ number_format($data['total'], 2, '.', ' ') }} TMT</td>
                             </tr>
                         @endforeach
                         @php
-                            $totalProject = array_sum(array_column($projectData, 'total'));
+                            $projectTotals = [];
+                            foreach ($projectData as $d) {
+                                $projectTotals[$d['currency']] = ($projectTotals[$d['currency']] ?? 0) + $d['total'];
+                            }
                         @endphp
                         <tr class="fw-bold">
                             <td>Итого</td>
-                            <td>{{ number_format($totalProject, 2, '.', ' ') }} TMT</td>
+                            <td>
+                                @foreach ($projectTotals as $currency => $total)
+                                    {{ $currency }}: {{ number_format((float) $total, 2, '.', ' ') }}
+                                    @if (!$loop->last)
+                                        <br>
+                                    @endif
+                                @endforeach
+                            </td>
                         </tr>
                     </tbody>
                 </table>
@@ -190,7 +237,7 @@
             @endif
         </div>
     </div>
-    
+
 </div>
 {{-- <script>
     document.getElementById('downloadPdf').addEventListener('click', function () {

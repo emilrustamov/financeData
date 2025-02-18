@@ -6,58 +6,56 @@
             <i class="bi bi-plus-circle fs-4"></i>
         </button>
     </div>
-    @if ($myCashes->count() > 0)
-        <h4>Мои кассы</h4>
-        @if ($myCashes->count() <= 6)
+    <!-- Замените текущий блок касс на следующий -->
+    <div class="card  mb-3" x-data="{ expanded: false }">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">Мои кассы</h5>
+            @if ($myCashes->count() > 6)
+                <button type="button" class="btn btn-outline-secondary btn-sm" x-on:click="expanded = !expanded">
+                    <span x-text="expanded ? 'Скрыть' : 'Показать все кассы'"></span>
+                </button>
+            @endif
+        </div>
+        <div class="card-body">
             <div class="row">
-                @foreach ($myCashes as $cash)
+                @foreach ($myCashes->take(6) as $cash)
                     <div class="col-md-2 mb-3">
-                        <div class="card">
+                        <div class="card ">
                             <div class="card-body">
                                 <h5 class="card-title">{{ $cash->title }}</h5>
-                                <p class="card-text" style="color: {{ $cash->balance > 0 ? 'green' : ($cash->balance < 0 ? 'red' : '#ffca2c') }}">
-                                    {{ number_format($cash->balance, 2, '.', ' ') }} TMT
+                                <p class="card-text"
+                                    style="color: {{ $cash->balance > 0 ? 'green' : ($cash->balance < 0 ? 'red' : '#ffca2c') }}">
+                                    {{ number_format($cash->balance, 2, '.', ' ') }} {{ $cash->currency->symbol }}
                                 </p>
                             </div>
                         </div>
                     </div>
                 @endforeach
             </div>
-        @else
-            <div id="cashCarousel" class="carousel slide" data-bs-interval="false">
-                <div class="carousel-inner">
-                    @foreach ($myCashes->chunk(6) as $chunkIndex => $cashChunk)
-                        <div class="carousel-item {{ $chunkIndex == 0 ? 'active' : '' }}">
-                            <div class="row">
-                                @foreach ($cashChunk as $cash)
-                                    <div class="col-md-2 mb-3">
-                                        <div class="card">
-                                            <div class="card-body">
-                                                <h5 class="card-title">{{ $cash->title }}</h5>
-                                                <p class="card-text" style="color: {{ $cash->balance > 0 ? 'green' : ($cash->balance < 0 ? 'red' : '#ffca2c') }}">
-                                                    {{ number_format($cash->balance, 2, '.', ' ') }} TMT
-                                                </p>
-                                            </div>
+            <template x-if="expanded">
+                <div>
+                    @foreach ($myCashes->skip(6)->chunk(6) as $cashChunk)
+                        <div class="row">
+                            @foreach ($cashChunk as $cash)
+                                <div class="col-md-2 mb-3">
+                                    <div class="card ">
+                                        <div class="card-body">
+                                            <h5 class="card-title">{{ $cash->title }}</h5>
+                                            <p class="card-text"
+                                                style="color: {{ $cash->balance > 0 ? 'green' : ($cash->balance < 0 ? 'red' : '#ffca2c') }}">
+                                                {{ number_format($cash->balance, 2, '.', ' ') }}
+                                                {{ $cash->currency->symbol }}
+                                            </p>
                                         </div>
                                     </div>
-                                @endforeach
-                            </div>
+                                </div>
+                            @endforeach
                         </div>
                     @endforeach
                 </div>
-                <button class="carousel-control-prev" type="button" data-bs-target="#cashCarousel"
-                    data-bs-slide="prev">
-                    <span class="carousel-control-prev-icon" aria-hidden="true"></span>
-                    <span class="visually-hidden">Previous</span>
-                </button>
-                <button class="carousel-control-next" type="button" data-bs-target="#cashCarousel"
-                    data-bs-slide="next">
-                    <span class="carousel-control-next-icon" aria-hidden="true"></span>
-                    <span class="visually-hidden">Next</span>
-                </button>
-            </div>
-        @endif
-    @endif
+            </template>
+        </div>
+    </div>
 
     <div class="card mt-3" x-data="{ open: true }">
         <div class="card-header">
@@ -88,7 +86,7 @@
             <div class="row g-3">
                 <div class="col-md-3">
                     <select wire:model.change="cashRegFltr" class="form-control">
-                        <option value="">Выберите кассу</option>
+                        <option value="">Все кассы</option>
                         @foreach ($cashRegisters as $cash)
                             <option value="{{ $cash->id }}">{{ $cash->title }}</option>
                         @endforeach
@@ -133,20 +131,27 @@
                 <div class="col-3">
                     <div class="stat-box">
                         <h6>Приход</h6>
-                        <p class="text-success fs-4">{{ $dailySummary['income'] }} <span>TMT</span> </p>
+                        <p class="text-success fs-4">
+                            {{ number_format($dailySummary['income'], 2, '.', ' ') }}
+                            <span>{{ $cashRegFltr ? optional($cashRegisters->firstWhere('id', $cashRegFltr))->currency->symbol : 'TMT' }}</span>
+                        </p>
                     </div>
                 </div>
                 <div class="col-3">
                     <div class="stat-box">
                         <h6>Расход</h6>
-                        <p class="text-danger fs-4">{{ $dailySummary['expense'] }} <span>TMT</span> </p>
+                        <p class="text-danger fs-4">
+                            {{ number_format($dailySummary['expense'], 2, '.', ' ') }}
+                            <span>{{ $cashRegFltr ? optional($cashRegisters->firstWhere('id', $cashRegFltr))->currency->symbol : 'TMT' }}</span>
+                        </p>
                     </div>
                 </div>
                 <div class="col-3">
                     <div class="stat-box">
                         <h6>Текущий итоговый баланс</h6>
                         <p class="fs-4" style="color: {{ $dailySummary['totalBalance'] >= 0 ? 'green' : 'red' }}">
-                            {{ number_format($dailySummary['totalBalance'], 1) }} <span>TMT</span>
+                            {{ number_format($dailySummary['totalBalance'], 1) }}
+                            <span>{{ $cashRegFltr ? optional($cashRegisters->firstWhere('id', $cashRegFltr))->currency->symbol : 'TMT' }}</span>
                         </p>
                     </div>
                 </div>
@@ -156,7 +161,8 @@
                         <div class="stat-box">
                             <h6>Баланс за выбранный день</h6>
                             <p class="fs-4" style="color: {{ $dailySummary['balance'] >= 0 ? 'green' : 'red' }}">
-                                {{ number_format($dailySummary['balance'], 1) }} <span>TMT</span>
+                                {{ number_format($dailySummary['balance'], 1) }}
+                                <span>{{ $cashRegFltr ? optional($cashRegisters->firstWhere('id', $cashRegFltr))->currency->symbol : 'TMT' }}</span>
                             </p>
                         </div>
                     </div>
@@ -181,12 +187,18 @@
         </div>
     </div>
 
-    <table class="table table-bordered table-hover">
+    <style>
+        table tr:last-child td:first-child,
+        table tr:last-child td:last-child {
+            border-bottom-left-radius: .375rem;
+        }
+    </style>
+    <table class="table table-bordered table-hover mt-3 ">
         <thead class="table-light">
             <tr>
                 <th>
                     <div class="dropdown">
-                        <button class="btn btn-outline-secondary dropdown-toggle" type="button" id="typeDropdown"
+                        <button class="btn  dropdown-toggle" type="button" id="typeDropdown"
                             data-bs-toggle="dropdown" aria-expanded="false">
                             Тип статьи
                             @if ($typeFilter !== null)
@@ -207,11 +219,23 @@
                 <th>Сумма</th>
                 <th>Проект</th>
                 <th>Контрагент</th>
+                <th>Пользователь</th>
                 <th>Дата</th>
                 <th>Действия</th>
             </tr>
         </thead>
-        <!-- filepath: /d:/OSPanel/domains/financeData/resources/views/livewire/record-form.blade.php -->
+        @php
+            if (!function_exists('highlightText')) {
+                function highlightText($text, $term)
+                {
+                    if (!$term) {
+                        return e($text);
+                    }
+                    $escapedTerm = preg_quote($term, '/');
+                    return preg_replace("/($escapedTerm)/iu", '<mark>$1</mark>', e($text));
+                }
+            }
+        @endphp
         <tbody>
             @foreach ($records as $record)
                 @if (!$typeFilter || $record->type === $typeFilter)
@@ -220,10 +244,17 @@
                             class="@if ($record->type === 1) bg-success text-white @elseif ($record->type === 0) bg-danger text-white @endif">
                             {{ $record->type === 1 ? 'Приход' : 'Расход' }}
                         </td>
-                        <td>{{ $record->description }}</td>
+
+                        <td>{!! highlightText($record->description, $searchTerm) !!}</td>
                         <td>{{ number_format($record->amount, 2, '.', ' ') }}</td>
                         <td>{{ $record->project ? $record->project->title : '-' }}</td>
-                        <td>{{ $record->object ? $record->object->title : '-' }}</td>
+                        <td>
+                            {!! highlightText(
+                                ($record->category ? $record->category->title : '-') . ': ' . ($record->object ? $record->object->title : '-'),
+                                $searchTerm,
+                            ) !!}
+                        </td>
+                        <td>{{ $record->user->name }}</td>
                         <td>{{ $record->date }}</td>
                         <td>
                             @can('edit transactions')

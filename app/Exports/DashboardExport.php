@@ -25,10 +25,10 @@ class DashboardExport implements WithMultipleSheets
     public function sheets(): array
     {
         return [
-            new CashExpensesSheet($this->startDate, $this->endDate, $this->userName),
+            new CashExpensesSheet($this->startDate, $this->endDate, $this->cashRegisters, $this->userName),
             new CategoryExpensesSheet($this->startDate, $this->endDate, $this->cashRegisters, $this->userName),
             new ObjectExpensesSheet($this->startDate, $this->endDate, $this->cashRegisters, $this->userName),
-            new ProjectExpensesSheet($this->startDate, $this->endDate, $this->userName),
+            new ProjectExpensesSheet($this->startDate, $this->endDate, $this->cashRegisters, $this->userName),
         ];
     }
 }
