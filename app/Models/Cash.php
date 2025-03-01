@@ -11,7 +11,7 @@ class Cash extends Model
     use HasFactory;
 
     protected $table = 'cashes';
-    protected $fillable = ['title', 'currency_id'];
+    protected $fillable = ['title', 'currency_id', 'color'];
 
     public function records()
     {

@@ -13,13 +13,14 @@ class CashComponent extends Component
 {
     use WithPagination;
 
-    public $title, $cashId, $currency_id, $userIds = [];
+    public $title, $cashId, $currency_id, $userIds = [],$color;
     public $showForm = false;
 
     protected $rules = [
         'title'       => 'required|string|max:255',
         'userIds'     => 'array',
-        'currency_id' => 'required|exists:currencies,id'
+        'currency_id' => 'required|exists:currencies,id',
+        'color'       => 'nullable|string|max:10',
     ];
 
     protected $listeners = ['deleteCashConfirmed'];
@@ -34,6 +35,7 @@ class CashComponent extends Component
             $this->title = $cash->title;
             $this->currency_id = $cash->currency_id;
             $this->userIds = $cash->users->pluck('id')->toArray();
+            $this->color       = $cash->color; 
         }
 
         $this->showForm = true;
@@ -54,11 +56,14 @@ class CashComponent extends Component
             $cash->update([
                 'title'       => $this->title,
                 'currency_id' => $this->currency_id,
+                'color'       => $this->color,
+                
             ]);
         } else {
             $cash = Cash::create([
                 'title'       => $this->title,
                 'currency_id' => $this->currency_id,
+                'color'       => $this->color,
             ]);
         }
 

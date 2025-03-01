@@ -73,6 +73,11 @@
                                 @endforeach
                             </select>
                         </div>
+                        <div class="mb-3">
+                            <label for="color" class="form-label">Цвет</label>
+                            <input type="color" id="color" class="form-control form-control-color"
+                                wire:model="color">
+                        </div>
 
                         <div class="mb-3">
                             <label class="form-label">Пользователи с доступом</label>

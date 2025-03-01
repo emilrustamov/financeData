@@ -20,7 +20,7 @@
             <div class="row">
                 @foreach ($myCashes->take(6) as $cash)
                     <div class="col-md-2 mb-3">
-                        <div class="card ">
+                        <div class="card" style="background-color: {{ $cash->color ? $cash->color . '1a' : '#ffffff' }};">
                             <div class="card-body">
                                 <h5 class="card-title">{{ $cash->title }}</h5>
                                 <p class="card-text"
@@ -38,13 +38,12 @@
                         <div class="row">
                             @foreach ($cashChunk as $cash)
                                 <div class="col-md-2 mb-3">
-                                    <div class="card ">
+                                    <div class="card" style="background-color: {{ $cash->color ? $cash->color . '1a' : '#ffffff' }};">
                                         <div class="card-body">
                                             <h5 class="card-title">{{ $cash->title }}</h5>
                                             <p class="card-text"
                                                 style="color: {{ $cash->balance > 0 ? 'green' : ($cash->balance < 0 ? 'red' : '#ffca2c') }}">
-                                                {{ number_format($cash->balance, 2, '.', ' ') }}
-                                                {{ $cash->currency->symbol }}
+                                                {{ number_format($cash->balance, 2, '.', ' ') }} {{ $cash->currency->symbol }}
                                             </p>
                                         </div>
                                     </div>
@@ -255,7 +254,7 @@
                             ) !!}
                         </td>
                         <td>{{ $record->user->name }}</td>
-                        <td>{{ $record->date }}</td>
+                        <td>{{ \Carbon\Carbon::parse($record->date)->translatedFormat('d.m.y') }}</td>
                         <td>
                             @can('edit transactions')
                                 <button class="btn btn-sm btn-warning" wire:click="openForm({{ $record->id }})">

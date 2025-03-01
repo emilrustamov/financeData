@@ -4,6 +4,7 @@ import './bootstrap';
 import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';
 
+
 document.getElementById('downloadPdf').addEventListener('click', function () {
     html2canvas(document.querySelector('.pdf-container')).then(canvas => {
         const imgData = canvas.toDataURL('image/png');
