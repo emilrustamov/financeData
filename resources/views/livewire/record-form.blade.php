@@ -20,7 +20,8 @@
             <div class="row">
                 @foreach ($myCashes->take(6) as $cash)
                     <div class="col-md-2 mb-3">
-                        <div class="card" style="background-color: {{ $cash->color ? $cash->color . '1a' : '#ffffff' }};">
+                        <div class="card"
+                            style="background-color: {{ $cash->color ? $cash->color . '1a' : '#ffffff' }};">
                             <div class="card-body">
                                 <h5 class="card-title">{{ $cash->title }}</h5>
                                 <p class="card-text"
@@ -38,12 +39,14 @@
                         <div class="row">
                             @foreach ($cashChunk as $cash)
                                 <div class="col-md-2 mb-3">
-                                    <div class="card" style="background-color: {{ $cash->color ? $cash->color . '1a' : '#ffffff' }};">
+                                    <div class="card"
+                                        style="background-color: {{ $cash->color ? $cash->color . '1a' : '#ffffff' }};">
                                         <div class="card-body">
                                             <h5 class="card-title">{{ $cash->title }}</h5>
                                             <p class="card-text"
                                                 style="color: {{ $cash->balance > 0 ? 'green' : ($cash->balance < 0 ? 'red' : '#ffca2c') }}">
-                                                {{ number_format($cash->balance, 2, '.', ' ') }} {{ $cash->currency->symbol }}
+                                                {{ number_format($cash->balance, 2, '.', ' ') }}
+                                                {{ $cash->currency->symbol }}
                                             </p>
                                         </div>
                                     </div>
@@ -85,7 +88,9 @@
             <div class="row g-3">
                 <div class="col-md-3">
                     <select wire:model.change="cashRegFltr" class="form-control">
-                        <option value="">Все кассы</option>
+                        @if (auth()->user()->is_admin)
+                            <option value="">Все кассы</option>
+                        @endif
                         @foreach ($cashRegisters as $cash)
                             <option value="{{ $cash->id }}">{{ $cash->title }}</option>
                         @endforeach
@@ -192,91 +197,114 @@
             border-bottom-left-radius: .375rem;
         }
     </style>
-    <table class="table table-bordered table-hover mt-3 ">
-        <thead class="table-light">
-            <tr>
-                <th>
-                    <div class="dropdown">
-                        <button class="btn  dropdown-toggle" type="button" id="typeDropdown"
-                            data-bs-toggle="dropdown" aria-expanded="false">
-                            Тип статьи
-                            @if ($typeFilter !== null)
-                                ({{ $typeFilter }})
-                            @endif
-                        </button>
-                        <ul class="dropdown-menu" aria-labelledby="typeDropdown">
-                            <li><a class="dropdown-item" href="#"
-                                    wire:click.prevent="$set('typeFilter', null)">Все</a></li>
-                            <li><a class="dropdown-item" href="#"
-                                    wire:click.prevent="$set('typeFilter', 1)">Приход</a></li>
-                            <li><a class="dropdown-item" href="#"
-                                    wire:click.prevent="$set('typeFilter', 0)">Расход</a></li>
-                        </ul>
-                    </div>
-                </th>
-                <th>Описание статьи</th>
-                <th>Сумма</th>
-                <th>Проект</th>
-                <th>Контрагент</th>
-                <th>Пользователь</th>
-                <th>Дата</th>
-                <th>Действия</th>
-            </tr>
-        </thead>
-        @php
-            if (!function_exists('highlightText')) {
-                function highlightText($text, $term)
-                {
-                    if (!$term) {
-                        return e($text);
+    <div class="table-responsive">
+        <table class="table table-bordered table-hover mt-3">
+            <thead class="table-light">
+                <tr>
+                    <th>Тип статьи</th>
+                    <th class="description-cell">Описание статьи</th>
+                    <th class="amount-cell">Сумма</th>
+                    <th>Проект</th>
+                    <th class="contragent-cell">Контрагент</th>
+                    <th>Пользователь</th>
+                    <th>Дата</th>
+                    <th>Действия</th>
+                </tr>
+            </thead>
+            @php
+                if (!function_exists('highlightText')) {
+                    function highlightText($text, $term)
+                    {
+                        if (!$term) {
+                            return e($text);
+                        }
+                        $escapedTerm = preg_quote($term, '/');
+                        return preg_replace("/($escapedTerm)/iu", '<mark>$1</mark>', e($text));
                     }
-                    $escapedTerm = preg_quote($term, '/');
-                    return preg_replace("/($escapedTerm)/iu", '<mark>$1</mark>', e($text));
                 }
-            }
-        @endphp
-        <tbody>
-            @foreach ($records as $record)
-                @if (!$typeFilter || $record->type === $typeFilter)
-                    <tr>
-                        <td
-                            class="@if ($record->type === 1) bg-success text-white @elseif ($record->type === 0) bg-danger text-white @endif">
-                            {{ $record->type === 1 ? 'Приход' : 'Расход' }}
-                        </td>
+            @endphp
+            <tbody>
+                @foreach ($records as $record)
+                    @if (!$typeFilter || $record->type === $typeFilter)
+                        <tr>
+                            <td
+                                class="@if ($record->type === 1) bg-success text-white @elseif ($record->type === 0) bg-danger text-white @endif">
+                                {{ $record->type === 1 ? 'Приход' : 'Расход' }}
+                            </td>
+                            <td class="description-cell" title="{{ $record->description }}">
+                                {!! highlightText($record->description, $searchTerm) !!}
+                            </td>
+                            <td class="amount-cell">{{ number_format($record->amount, 2, '.', ' ') }}</td>
+                            <td>{{ $record->project ? $record->project->title : '-' }}</td>
+                            <td class="contragent-cell">
+                                {!! highlightText(
+                                    ($record->category ? $record->category->title : '-') . ': ' . ($record->object ? $record->object->title : '-'),
+                                    $searchTerm,
+                                ) !!}
+                            </td>
+                            <td>{{ $record->user->name }}</td>
+                            <td>{{ \Carbon\Carbon::parse($record->date)->translatedFormat('d.m.y') }}</td>
+                            <td>
+                                @can('edit transactions')
+                                    <button class="btn btn-sm btn-warning" wire:click="openForm({{ $record->id }})">
+                                        <i class="bi bi-pencil-square"></i>
+                                    </button>
+                                @endcan
+                                <button class="btn btn-sm btn-primary" wire:click="copyRecord({{ $record->id }})"
+                                    title="Копировать">
+                                    <i class="bi bi-files"></i>
+                                </button>
+                                @can('delete transactions')
+                                    <button class="btn btn-sm btn-danger"
+                                        wire:click="confirmDeleteRecord({{ $record->id }})">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                @endcan
+                            </td>
+                        </tr>
+                    @endif
+                @endforeach
+            </tbody>
+        </table>
+    </div>
 
-                        <td>{!! highlightText($record->description, $searchTerm) !!}</td>
-                        <td>{{ number_format($record->amount, 2, '.', ' ') }}</td>
-                        <td>{{ $record->project ? $record->project->title : '-' }}</td>
-                        <td>
-                            {!! highlightText(
-                                ($record->category ? $record->category->title : '-') . ': ' . ($record->object ? $record->object->title : '-'),
-                                $searchTerm,
-                            ) !!}
-                        </td>
-                        <td>{{ $record->user->name }}</td>
-                        <td>{{ \Carbon\Carbon::parse($record->date)->translatedFormat('d.m.y') }}</td>
-                        <td>
-                            @can('edit transactions')
-                                <button class="btn btn-sm btn-warning" wire:click="openForm({{ $record->id }})">
-                                    <i class="bi bi-pencil-square"></i>
-                                </button>
-                            @endcan
-                            <button class="btn btn-sm btn-primary" wire:click="copyRecord({{ $record->id }})"
-                                title="Копировать">
-                                <i class="bi bi-files"></i>
-                            </button>
-                            @can('delete transactions')
-                                <button class="btn btn-sm btn-danger"
-                                    wire:click="confirmDeleteRecord({{ $record->id }})">
-                                    <i class="bi bi-trash"></i>
-                                </button>
-                            @endcan
-                        </td>
-                    </tr>
-                @endif
-            @endforeach
-        </tbody>
-    </table>
+    <style>
+        .description-cell {
+            max-width: 300px;
+            white-space: normal;
+            word-break: break-word;
+        }
+
+        .amount-cell,
+        .contragent-cell {
+            min-width: 80px;
+        }
+
+        @media (max-width: 768px) {
+            .table-responsive {
+                overflow-x: auto;
+            }
+        }
+
+        @media (max-width: 768px) {
+
+            .table-responsive {
+                overflow-x: auto;
+            }
+        }
+
+        .description-cell {
+            max-width: 150px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .amount-cell,
+        .contragent-cell {
+            min-width: 80px;
+        }
+    </style>
 
     <div class="mt-4">
         {{ $records->links() }}

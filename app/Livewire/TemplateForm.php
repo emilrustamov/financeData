@@ -35,17 +35,18 @@ class TemplateForm extends Component
         $availableIcons = [
             'bi-tools',
             'bi-droplet',
-            'bi-cup-straw',
             'bi-pencil',
             'bi-bucket',
             'bi-cash-coin',
-            'bi-person-badge',
             'bi-palette',
             'bi-shop',
             'bi-bag',
             'bi-globe',
             'bi-heart',
             'bi-briefcase',
+            'bi-truck', 
+            'bi-cart',    
+            'bi-person',  
         ];
 
     protected $rules = [

@@ -1,6 +1,5 @@
 <div class="container pdf-container">
-    {{-- <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.4.0/jspdf.umd.min.js"></script> --}}
+
     <div style="position: fixed; bottom: 20px; right: 20px; z-index: 9999;" class="bg-white p-3 rounded shadow-sm">
         <div class="mb-2">
             <label for="startDate" class="form-label">
@@ -86,6 +85,14 @@
                 <i class="fas" :class="open ? 'fa-chevron-up' : 'fa-chevron-down'"></i>
             </button>
         </div>
+        <div class="p-3">
+            <select wire:model.live="selectedCategory" class="form-select mb-3">
+                <option value="">Все категории</option>
+                @foreach ($catFilterOptions as $catOption)
+                    <option value="{{ $catOption }}">{{ $catOption }}</option>
+                @endforeach
+            </select>
+        </div>
         <div x-show="open" x-transition>
             <div style="height: 300px;">
                 <livewire:livewire-column-chart key="{{ $catStackedChart->reactiveKey() }}" :column-chart-model="$catStackedChart" />
@@ -95,8 +102,8 @@
                     <tr>
                         <th>Категория</th>
                         <th>Итог</th>
-                        @if (!empty($catSummary))
-                            @foreach (array_keys(reset($catSummary)) as $cashTitle)
+                        @if (!empty($catHeader))
+                            @foreach ($catHeader as $cashTitle)
                                 <th>{{ $cashTitle }}</th>
                             @endforeach
                         @endif
@@ -108,21 +115,21 @@
                             <td>{{ $catName }}</td>
                             <td>
                                 @php
-                                    $rowTotals = [];
+                                    $totalsByCurrency = [];
                                     foreach ($cashData as $cashTitle => $value) {
                                         preg_match('/\((.*?)\)$/', $cashTitle, $matches);
-                                        $currency = $matches[1] ?? 'TMT';
-                                        $rowTotals[$currency] = ($rowTotals[$currency] ?? 0) + $value;
+                                        $currency = $matches[1] ?? '';
+                                        $totalsByCurrency[$currency] = ($totalsByCurrency[$currency] ?? 0) + $value;
                                     }
                                 @endphp
-                                @foreach ($rowTotals as $currency => $total)
+                                @foreach ($totalsByCurrency as $currency => $total)
                                     {{ $currency }}: {{ number_format($total, 2, '.', ' ') }}@if (!$loop->last)
                                         <br>
                                     @endif
                                 @endforeach
                             </td>
-                            @foreach ($cashData as $value)
-                                <td>{{ $value }}</td>
+                            @foreach ($catHeader as $cashTitle)
+                                <td>{{ $cashData[$cashTitle] ?? '' }}</td>
                             @endforeach
                         </tr>
                     @endforeach
@@ -139,6 +146,15 @@
                 <i class="fas" :class="open ? 'fa-chevron-up' : 'fa-chevron-down'"></i>
             </button>
         </div>
+        <!-- Новый фильтр по контрагентам -->
+        <div class="p-3">
+            <select wire:model="selectedObj" class="form-select mb-3">
+                <option value="">Все контрагенты</option>
+                @foreach ($objFilterOptions as $objOption)
+                    <option value="{{ $objOption }}">{{ $objOption }}</option>
+                @endforeach
+            </select>
+        </div>
         <div x-show="open" x-transition>
             <div style="height: 300px;">
                 <livewire:livewire-column-chart key="{{ $objStackedChart->reactiveKey() }}" :column-chart-model="$objStackedChart" />
@@ -148,8 +164,8 @@
                     <tr>
                         <th>Контрагент</th>
                         <th>Итог</th>
-                        @if (!empty($objSummary))
-                            @foreach (array_keys(reset($objSummary)) as $cashTitle)
+                        @if (!empty($objHeader))
+                            @foreach ($objHeader as $cashTitle)
                                 <th>{{ $cashTitle }}</th>
                             @endforeach
                         @endif
@@ -174,8 +190,8 @@
                                     @endif
                                 @endforeach
                             </td>
-                            @foreach ($cashData as $value)
-                                <td>{{ $value }}</td>
+                            @foreach ($objHeader as $cashTitle)
+                                <td>{{ $cashData[$cashTitle] ?? '' }}</td>
                             @endforeach
                         </tr>
                     @endforeach

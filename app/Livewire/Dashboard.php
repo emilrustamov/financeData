@@ -22,12 +22,15 @@ class Dashboard extends Component
     public $cashTwoCategory;
     public $cashOneCounter;
     public $cashTwoCounter;
+    public $selectedCategory = '';
+    public $selectedObj = '';
 
     public function mount()
     {
         $this->startDate = Carbon::now()->startOfMonth()->toDateString();
         $this->endDate   = Carbon::now()->endOfMonth()->toDateString();
-
+        $this->selectedCategory = '';
+        $this->selectedObj = '';
         $user = auth()->user();
         $this->cashRegisters = $user->cashes;
         $this->allCashes = $this->cashRegisters->mapWithKeys(function ($cash) {
@@ -131,6 +134,9 @@ class Dashboard extends Component
             $groupedCategories[$catName][] = $catId;
         }
 
+        // Подготовка опций для фильтра (все уникальные названия категорий)
+        $catFilterOptions = array_keys($groupedCategories);
+
         $catSummary = [];
         foreach ($groupedCategories as $catName => $catIds) {
             foreach ($this->selectedCashes as $cashId) {
@@ -143,11 +149,47 @@ class Dashboard extends Component
             }
         }
 
+        // Фильтрация по выбранной категории, если установлено значение
+        if (!empty($this->selectedCategory)) {
+            if (isset($catSummary[$this->selectedCategory])) {
+                $catSummary = [$this->selectedCategory => $catSummary[$this->selectedCategory]];
+            } else {
+                $catSummary = [];
+            }
+        }
+
+        // Фильтруем категории, где суммарное значение равно 0 (для таблицы)
+        foreach ($catSummary as $catName => $cashData) {
+            if (array_sum($cashData) == 0) {
+                unset($catSummary[$catName]);
+            }
+        }
+        $globalTotalsCat = [];
+        foreach ($catSummary as $catName => $cashData) {
+            foreach ($cashData as $cashTitle => $value) {
+                $globalTotalsCat[$cashTitle] = ($globalTotalsCat[$cashTitle] ?? 0) + (float)$value;
+            }
+        }
+        $catHeader = array_keys(array_filter($globalTotalsCat, function ($value) {
+            return (float)$value !== 0.0;
+        }));
+
+        foreach ($catSummary as $catName => $cashData) {
+            $filteredCashData = [];
+            foreach ($catHeader as $cashTitle) {
+                $filteredCashData[$cashTitle] = $cashData[$cashTitle] ?? 0;
+            }
+            $catSummary[$catName] = $filteredCashData;
+        }
+
+        // Создание графика (без 0 значений)
         $catStackedChart = new ColumnChartModel();
         $catStackedChart->multiColumn()->stacked()->setColumnWidth(30);
         foreach ($catSummary as $catName => $cashTotals) {
             foreach ($cashTotals as $cashTitle => $total) {
-                $catStackedChart->addSeriesColumn($cashTitle, $catName, $total);
+                if ($total != 0) {
+                    $catStackedChart->addSeriesColumn($cashTitle, $catName, $total);
+                }
             }
         }
         $catStackedChart->jsonConfig = [
@@ -178,6 +220,36 @@ class Dashboard extends Component
                 $total = isset($stackedObjData[$objId][$cashId]) ? $stackedObjData[$objId][$cashId] : 0;
                 $cashTitle = $this->allCashes[$cashId] ?? $cashId;
                 $objSummary[$objTitle][$cashTitle] = $total;
+            }
+        }
+        $filteredObjSummary = [];
+        foreach ($objSummary as $objTitle => $cashData) {
+            $filteredObjSummary[$objTitle] = [];
+            foreach ($cashData as $cashTitle => $value) {
+                if ((float)$value !== 0.0) {
+                    $filteredObjSummary[$objTitle][$cashTitle] = $value;
+                }
+            }
+        }
+
+        $globalTotals = [];
+        foreach ($filteredObjSummary as $cashData) {
+            foreach ($cashData as $cashTitle => $value) {
+                $globalTotals[$cashTitle] = ($globalTotals[$cashTitle] ?? 0) + (float)$value;
+            }
+        }
+
+        $objHeader = array_keys(array_filter($globalTotals, function ($value) {
+            return $value !== 0.0;
+        }));
+        $objFilterOptions = array_values($objectsList);
+
+        // Фильтруем данные, если выбран конкретный контрагент
+        if (!empty($this->selectedObj)) {
+            if (isset($objSummary[$this->selectedObj])) {
+                $objSummary = [$this->selectedObj => $objSummary[$this->selectedObj]];
+            } else {
+                $objSummary = [];
             }
         }
 
@@ -260,7 +332,13 @@ class Dashboard extends Component
             'projectChart'      => $projectChart,
             'projectData'       => $projectData,
             'catSummary'        => $catSummary,
-            'objSummary'        => $objSummary,
+            'objSummary'        => $filteredObjSummary,
+            'objHeader'         => $objHeader,
+            'catHeader'         => $catHeader,
+            'catFilterOptions' => $catFilterOptions,
+            'selectedCategory' => $this->selectedCategory,
+            'objFilterOptions'  => $objFilterOptions,
+            'selectedObj'       => $this->selectedObj,
         ]);
     }
 
