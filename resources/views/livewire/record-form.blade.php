@@ -88,10 +88,8 @@
             <div class="row g-3">
                 <div class="col-md-3">
                     <select wire:model.change="cashRegFltr" class="form-control">
-                        @if (auth()->user()->is_admin)
-                            <option value="">Все кассы</option>
-                        @endif
-                        @foreach ($cashRegisters as $cash)
+                                               <option value="">Все кассы</option>
+                                @foreach ($cashRegisters as $cash)
                             <option value="{{ $cash->id }}">{{ $cash->title }}</option>
                         @endforeach
                     </select>

@@ -104,8 +104,8 @@
                             <textarea wire:model="note" id="note" class="form-control"></textarea>
                         </div>
                         <div class="mb-3">
-                            <label for="transferDate" class="form-label">Дата трансфера</label>
-                            <input type="date" wire:model="transferDate" id="transferDate" class="form-control">
+                            <label for="date" class="form-label">Дата трансфера</label>
+                            <input type="date" wire:model="date" id="date" class="form-control">
                         </div>
 
                         <div class="d-flex justify-content-end">

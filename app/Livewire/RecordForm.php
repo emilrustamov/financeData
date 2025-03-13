@@ -70,10 +70,10 @@ class RecordForm extends Component
             'myCashes'     => $this->myCashes,
         ]);
     }
-
     private function buildRecordQuery()
     {
         return Record::with(['project', 'object', 'category', 'cash'])
+            ->when(!Auth::user()->is_admin, fn($q) => $q->whereIn('cash_id', $this->cashRegisters->pluck('id')->toArray()))
             ->when($this->cashRegFltr, fn($q) => $q->where('cash_id', $this->cashRegFltr))
             ->when($this->filterType === 'daily' && $this->dateFilter, fn($q) => $q->whereDate('date', $this->dateFilter))
             ->when($this->filterType === 'weekly', fn($q) => $q->whereBetween('date', [now()->startOfWeek(), now()->endOfWeek()]))

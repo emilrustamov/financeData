@@ -18,6 +18,7 @@ class Transfer extends Model
         'note',
         'from_record_id',
         'to_record_id',
+        'date', 
     ];
 
     public function fromCash()

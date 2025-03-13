@@ -18,37 +18,34 @@ class TransferForm extends Component
     public $exchangeRate; // новый параметр для курса обмена
     public $transferId = null;
     public $showForm = false;
-    public $transferDate;
+    public $date;
 
     protected $rules = [
         'fromCashId' => 'required|exists:cashes,id|different:toCashId',
         'toCashId'   => 'required|exists:cashes,id|different:fromCashId',
         'amount'     => 'required|numeric|min:0',
         'note'       => 'nullable|string|max:255',
-        // exchangeRate проверим условно в методе createTransfer
     ];
 
     protected $listeners = ['openForm'];
 
     public function openForm($id = null)
     {
-        $this->resetExcept(['fromCashId', 'toCashId']);
+        // Сбросим все свойства формы
+        $this->reset();
         $this->transferId = $id;
-
+        
         if ($id) {
             $transfer = Transfer::findOrFail($id);
-            $this->fromCashId = $transfer->from_cash_id;
-            $this->toCashId = $transfer->to_cash_id;
-            $this->amount = $transfer->amount;
-            $this->note = $transfer->note;
-            // Если в комментарии был курс, его можно извлечь (по необходимости)
+            $this->fromCashId   = $transfer->from_cash_id;
+            $this->toCashId     = $transfer->to_cash_id;
+            $this->amount       = $transfer->amount;
+            $this->note         = $transfer->note;
+            $this->date = $transfer->date; 
         } else {
-            $this->reset(['fromCashId', 'toCashId', 'amount', 'note', 'exchangeRate']);
+            $this->date = now()->format('D M d'); 
         }
-        if (!$this->transferDate) {
-            $this->transferDate = now()->format('Y-m-d');
-        }
-
+        
         $this->showForm = true;
     }
 
@@ -80,21 +77,20 @@ class TransferForm extends Component
         $data = [
             'from_cash_id' => $this->fromCashId,
             'to_cash_id'   => $this->toCashId,
-            'amount'       => $this->amount, // исходная сумма (в валюте исходной кассы)
+            'amount'       => $this->amount,
             'user_id'      => Auth::id(),
+            'date'         => $this->date
         ];
 
-        // Если валюты отличаются, пересчитываем сумму для целевой кассы
         if ($fromCash && $toCash && $fromCash->currency->id != $toCash->currency->id) {
             $toAmount = $this->amount * $this->exchangeRate;
-            // Добавляем курс в комментарий
             $data['note'] = ($this->note ?: "Трансфер с кассы " . $fromCash->title . " на кассу " . $toCash->title)
                 . " | Курс: " . $this->exchangeRate;
         } else {
             $data['note'] = $this->note ?: "Трансфер с кассы " . $fromCash->title . " на кассу " . $toCash->title;
         }
 
-        // При обновлении трансфера удаляем старые записи (если есть) и создаём новые с перерасчётом
+
         if ($this->transferId) {
             $transfer = Transfer::findOrFail($this->transferId);
 
@@ -105,12 +101,11 @@ class TransferForm extends Component
                 Record::destroy($transfer->to_record_id);
             }
 
-            // Создаем запись для исходной кассы (снимается исходная сумма)
             $fromRecord = Record::create([
                 'type'        => 0,
                 'description' => $data['note'],
                 'amount'      => $this->amount,
-                'date'        => $this->transferDate,
+                'date'        => $this->date,
                 'cash_id'     => $this->fromCashId,
                 'user_id'     => Auth::id(),
             ]);
@@ -120,7 +115,7 @@ class TransferForm extends Component
                 'type'        => 1,
                 'description' => $data['note'],
                 'amount'      => isset($toAmount) ? $toAmount : $this->amount,
-                'date'        => $this->transferDate,
+                'date'        => $this->date,
                 'cash_id'     => $this->toCashId,
                 'user_id'     => Auth::id(),
             ]);
@@ -134,7 +129,7 @@ class TransferForm extends Component
                 'type'        => 0,
                 'description' => $data['note'],
                 'amount'      => $this->amount,
-                'date'        => $this->transferDate,
+                'date'        => $this->date,
                 'cash_id'     => $this->fromCashId,
                 'user_id'     => Auth::id(),
             ]);
@@ -143,7 +138,7 @@ class TransferForm extends Component
                 'type'        => 1,
                 'description' => $data['note'],
                 'amount'      => isset($toAmount) ? $toAmount : $this->amount,
-                'date'        => $this->transferDate,
+                'date'        => $this->date,
                 'cash_id'     => $this->toCashId,
                 'user_id'     => Auth::id(),
             ]);
@@ -176,7 +171,7 @@ class TransferForm extends Component
     public function isCashClosed($cashId)
     {
         return \App\Models\CashRegister::where('cash_id', $cashId)
-            ->whereDate('date', $this->transferDate)
+            ->whereDate('date', $this->date)
             ->exists();
     }
 
