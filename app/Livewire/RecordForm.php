@@ -227,20 +227,30 @@ class RecordForm extends Component
 
     public function getDailySummary()
     {
-        $dailyData = Record::selectRaw('type, SUM(amount) as total')
+        $queryDaily = Record::query()
             ->when($this->cashRegFltr, fn($q) => $q->where('cash_id', $this->cashRegFltr))
-            ->when($this->dateFilter, fn($q) => $q->whereDate('date', $this->dateFilter))
+            ->when($this->dateFilter, fn($q) => $q->whereDate('date', $this->dateFilter));
+
+        // Ограничиваем для не администраторов
+        if (!Auth::user()->is_admin) {
+            $queryDaily->whereIn('cash_id', $this->cashRegisters->pluck('id')->toArray());
+        }
+
+        $dailyData = $queryDaily->selectRaw('type, SUM(amount) as total')
+            ->groupBy('type')
+            ->pluck('total', 'type');
+
+        $queryTotal = Record::query()
+            ->when($this->cashRegFltr, fn($q) => $q->where('cash_id', $this->cashRegFltr));
+        if (!Auth::user()->is_admin) {
+            $queryTotal->whereIn('cash_id', $this->cashRegisters->pluck('id')->toArray());
+        }
+        $totalData = $queryTotal->selectRaw('type, SUM(amount) as total')
             ->groupBy('type')
             ->pluck('total', 'type');
 
         $dailyIncome  = $dailyData->get(1, 0);
         $dailyExpense = $dailyData->get(0, 0);
-
-        $totalData = Record::selectRaw('type, SUM(amount) as total')
-            ->when($this->cashRegFltr, fn($q) => $q->where('cash_id', $this->cashRegFltr))
-            ->groupBy('type')
-            ->pluck('total', 'type');
-
         $totalIncome  = $totalData->get(1, 0);
         $totalExpense = $totalData->get(0, 0);
 
@@ -254,7 +264,12 @@ class RecordForm extends Component
 
     public function calculateTotalBalance($cashId = null, $dateFilter = null)
     {
-        $query  = Record::query()->when($cashId, fn($q) => $q->where('cash_id', $cashId));
+        $query = Record::query()->when($cashId, fn($q) => $q->where('cash_id', $cashId));
+
+        if (!Auth::user()->is_admin) {
+            $query->whereIn('cash_id', $this->cashRegisters->pluck('id')->toArray());
+        }
+
         $income = (clone $query)->where('type', 1)->sum('amount');
         $expense = (clone $query)->where('type', 0)->sum('amount');
 
