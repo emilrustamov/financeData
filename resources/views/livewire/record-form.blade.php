@@ -117,11 +117,11 @@
                     @if ($filterType === 'custom')
                         <div class="row">
                             <div class="col">
-                                <input type="date" id="startDate" class="form-control" wire:model="startDate"
+                                <input type="date" id="startDate" class="form-control" wire:model.live="startDate"
                                     max="{{ date('Y-m-d') }}">
                             </div>
                             <div class="col">
-                                <input type="date" id="endDate" class="form-control" wire:model="endDate"
+                                <input type="date" id="endDate" class="form-control" wire:model.live="endDate"
                                     max="{{ date('Y-m-d') }}">
                             </div>
                         </div>

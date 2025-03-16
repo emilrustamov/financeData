@@ -59,7 +59,7 @@ class RecordForm extends Component
     public function render()
     {
         $records = $this->buildRecordQuery()
-            ->orderBy('created_at', 'desc')
+            ->orderBy('date', 'desc')
             ->paginate(20);
 
         return view('livewire.record-form', [
@@ -229,17 +229,19 @@ class RecordForm extends Component
     {
         $queryDaily = Record::query()
             ->when($this->cashRegFltr, fn($q) => $q->where('cash_id', $this->cashRegFltr))
-            ->when($this->dateFilter, fn($q) => $q->whereDate('date', $this->dateFilter));
-
-        // Ограничиваем для не администраторов
+            ->when($this->filterType === 'daily' && $this->dateFilter, fn($q) => $q->whereDate('date', $this->dateFilter))
+            ->when($this->filterType === 'weekly', fn($q) => $q->whereBetween('date', [now()->startOfWeek(), now()->endOfWeek()]))
+            ->when($this->filterType === 'monthly', fn($q) => $q->whereBetween('date', [now()->startOfMonth(), now()->endOfMonth()]))
+            ->when($this->filterType === 'custom' && $this->startDate && $this->endDate, fn($q) => $q->whereBetween('date', [$this->startDate, $this->endDate]));
+    
         if (!Auth::user()->is_admin) {
             $queryDaily->whereIn('cash_id', $this->cashRegisters->pluck('id')->toArray());
         }
-
+    
         $dailyData = $queryDaily->selectRaw('type, SUM(amount) as total')
             ->groupBy('type')
             ->pluck('total', 'type');
-
+    
         $queryTotal = Record::query()
             ->when($this->cashRegFltr, fn($q) => $q->where('cash_id', $this->cashRegFltr));
         if (!Auth::user()->is_admin) {
@@ -248,12 +250,12 @@ class RecordForm extends Component
         $totalData = $queryTotal->selectRaw('type, SUM(amount) as total')
             ->groupBy('type')
             ->pluck('total', 'type');
-
+    
         $dailyIncome  = $dailyData->get(1, 0);
         $dailyExpense = $dailyData->get(0, 0);
         $totalIncome  = $totalData->get(1, 0);
         $totalExpense = $totalData->get(0, 0);
-
+    
         return [
             'income'       => $dailyIncome,
             'expense'      => $dailyExpense,
