@@ -24,6 +24,7 @@ class Dashboard extends Component
     public $cashTwoCounter;
     public $selectedCategory = '';
     public $selectedObj = '';
+    public $selectedMonth = '';
 
     public function mount()
     {
@@ -199,6 +200,58 @@ class Dashboard extends Component
             ],
         ];
 
+        $detailedCatRecords = collect([]);
+        if (!empty($this->selectedCategory)) {
+            $catIds = $groupedCategories[$this->selectedCategory] ?? [];
+            $detailedCatRecords = Record::where('type', 0)
+                ->whereBetween('date', [$this->startDate, $this->endDate])
+                ->whereIn('cash_id', $this->selectedCashes)
+                ->whereIn('category_id', $catIds)
+                ->get();
+        }
+
+        $catMonthlyChart = null;
+        if (!empty($this->selectedCategory)) {
+            $catMonthlyChart = new ColumnChartModel();
+            $catMonthlyChart->setColumnWidth(30);
+            $monthsData = $detailedCatRecords->groupBy(function ($record) {
+                return \Carbon\Carbon::parse($record->date)->format('Y-m');
+            })->sortKeys();
+
+            foreach ($monthsData as $month => $records) {
+                $total = $records->sum('amount');
+                $monthLabel = \Carbon\Carbon::parse($month . '-01')
+                    ->locale('ru')
+                    ->translatedFormat('F Y');
+                $catMonthlyChart->addColumn($monthLabel, $total, '#4299e1');
+            }
+        }
+
+        // Формирование массива доступных месяцев (без будущих)
+        $availableMonths = [];
+        if (!empty($this->selectedCategory)) {
+            $monthsData = $detailedCatRecords->groupBy(function ($record) {
+                return \Carbon\Carbon::parse($record->date)->format('Y-m');
+            })->sortKeys();
+
+            $currentMonth = \Carbon\Carbon::now()->format('Y-m');
+            foreach ($monthsData as $month => $records) {
+                if ($month <= $currentMonth) {
+                    $availableMonths[$month] = \Carbon\Carbon::parse($month . '-01')
+                        ->locale('ru')
+                        ->translatedFormat('F Y');
+                }
+            }
+            if (empty($this->selectedMonth) && count($availableMonths) > 0) {
+                // По умолчанию выбираем последний доступный месяц
+                $this->selectedMonth = array_key_last($availableMonths);
+            }
+            if (!empty($this->selectedMonth)) {
+                $detailedCatRecords = $detailedCatRecords->filter(function ($record) {
+                    return \Carbon\Carbon::parse($record->date)->format('Y-m') === $this->selectedMonth;
+                });
+            }
+        }
         // Расходы по объектам
         $objectsList = \App\Models\Objects::whereJsonContains('users', auth()->user()->id)
             ->pluck('title', 'id')->toArray();
@@ -339,6 +392,10 @@ class Dashboard extends Component
             'selectedCategory' => $this->selectedCategory,
             'objFilterOptions'  => $objFilterOptions,
             'selectedObj'       => $this->selectedObj,
+            'detailedCatRecords'  => $detailedCatRecords,
+            'catMonthlyChart'   => $catMonthlyChart,
+            'availableMonths'   => $availableMonths,
+            'selectedMonth'     => $this->selectedMonth,
         ]);
     }
 
