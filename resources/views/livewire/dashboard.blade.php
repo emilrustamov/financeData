@@ -200,125 +200,125 @@
                         </tfoot>
                     </table>
                 </div>
+            </div>
+        @endif
     </div>
-    @endif
-</div>
 
 
-<div class="card mb-4 shadow-sm p-3" x-data="{ open: true }">
-    <div class="d-flex justify-content-between align-items-center">
-        <h3 class="font-bold text-lg">Расходы по контрагентам:</h3>
-        <button type="button" class="btn btn-outline btn-sm" @click="open = !open">
-            <i class="fas" :class="open ? 'fa-chevron-up' : 'fa-chevron-down'"></i>
-        </button>
-    </div>
-    <!-- Новый фильтр по контрагентам -->
-    <div class="p-3">
-        <select wire:model="selectedObj" class="form-select mb-3">
-            <option value="">Все контрагенты</option>
-            @foreach ($objFilterOptions as $objOption)
-                <option value="{{ $objOption }}">{{ $objOption }}</option>
-            @endforeach
-        </select>
-    </div>
-    <div x-show="open" x-transition>
-        <div style="height: 300px;">
-            <livewire:livewire-column-chart key="{{ $objStackedChart->reactiveKey() }}" :column-chart-model="$objStackedChart" />
+    <div class="card mb-4 shadow-sm p-3" x-data="{ open: true }">
+        <div class="d-flex justify-content-between align-items-center">
+            <h3 class="font-bold text-lg">Расходы по контрагентам:</h3>
+            <button type="button" class="btn btn-outline btn-sm" @click="open = !open">
+                <i class="fas" :class="open ? 'fa-chevron-up' : 'fa-chevron-down'"></i>
+            </button>
         </div>
-        <table class="table table-bordered table-striped mt-3">
-            <thead>
-                <tr>
-                    <th>Контрагент</th>
-                    <th>Итог</th>
-                    @if (!empty($objHeader))
-                        @foreach ($objHeader as $cashTitle)
-                            <th>{{ $cashTitle }}</th>
-                        @endforeach
-                    @endif
-                </tr>
-            </thead>
-            <tbody>
-                @foreach ($objSummary as $objTitle => $cashData)
-                    <tr>
-                        <td>{{ $objTitle }}</td>
-                        <td>
-                            @php
-                                $rowTotals = [];
-                                foreach ($cashData as $cashTitle => $value) {
-                                    preg_match('/\((.*?)\)$/', $cashTitle, $matches);
-                                    $currency = $matches[1] ?? 'TMT';
-                                    $rowTotals[$currency] = ($rowTotals[$currency] ?? 0) + $value;
-                                }
-                            @endphp
-                            @foreach ($rowTotals as $currency => $total)
-                                {{ $currency }}: {{ number_format($total, 2, '.', ' ') }}@if (!$loop->last)
-                                    <br>
-                                @endif
-                            @endforeach
-                        </td>
-                        @foreach ($objHeader as $cashTitle)
-                            <td>{{ $cashData[$cashTitle] ?? '' }}</td>
-                        @endforeach
-                    </tr>
+        <!-- Новый фильтр по контрагентам -->
+        <div class="p-3">
+            <select wire:model="selectedObj" class="form-select mb-3">
+                <option value="">Все контрагенты</option>
+                @foreach ($objFilterOptions as $objOption)
+                    <option value="{{ $objOption }}">{{ $objOption }}</option>
                 @endforeach
-            </tbody>
-        </table>
-    </div>
-</div>
-
-
-<div class="card mb-4 shadow-sm p-3" x-data="{ open: true }">
-    <div class="d-flex justify-content-between align-items-center">
-        <h3 class="font-bold text-lg">Расходы по проектам:</h3>
-        <button type="button" class="btn btn-outline btn-sm" @click="open = !open">
-            <i class="fas" :class="open ? 'fa-chevron-up' : 'fa-chevron-down'"></i>
-        </button>
-    </div>
-    <div x-show="open" x-transition>
-        <div style="height: 300px;">
-            <livewire:livewire-column-chart key="{{ $projectChart->reactiveKey() }}" :column-chart-model="$projectChart" />
+            </select>
         </div>
-        @if (count($projectData) > 0)
-            <table class="table table-bordered table-hover mt-3">
+        <div x-show="open" x-transition>
+            <div style="height: 300px;">
+                <livewire:livewire-column-chart key="{{ $objStackedChart->reactiveKey() }}" :column-chart-model="$objStackedChart" />
+            </div>
+            <table class="table table-bordered table-striped mt-3">
                 <thead>
                     <tr>
-                        <th>Проект</th>
-                        <th>Сумма расходов</th>
+                        <th>Контрагент</th>
+                        <th>Итог</th>
+                        @if (!empty($objHeader))
+                            @foreach ($objHeader as $cashTitle)
+                                <th>{{ $cashTitle }}</th>
+                            @endforeach
+                        @endif
                     </tr>
                 </thead>
                 <tbody>
-                    @foreach ($projectData as $data)
+                    @foreach ($objSummary as $objTitle => $cashData)
                         <tr>
-                            <td>{{ $data['project'] }}</td>
+                            <td>{{ $objTitle }}</td>
                             <td>
-                                {{ number_format((float) $data['total'], 2, '.', ' ') }} {{ $data['currency'] }}
+                                @php
+                                    $rowTotals = [];
+                                    foreach ($cashData as $cashTitle => $value) {
+                                        preg_match('/\((.*?)\)$/', $cashTitle, $matches);
+                                        $currency = $matches[1] ?? 'TMT';
+                                        $rowTotals[$currency] = ($rowTotals[$currency] ?? 0) + $value;
+                                    }
+                                @endphp
+                                @foreach ($rowTotals as $currency => $total)
+                                    {{ $currency }}: {{ number_format($total, 2, '.', ' ') }}@if (!$loop->last)
+                                        <br>
+                                    @endif
+                                @endforeach
                             </td>
+                            @foreach ($objHeader as $cashTitle)
+                                <td>{{ $cashData[$cashTitle] ?? '' }}</td>
+                            @endforeach
                         </tr>
                     @endforeach
-                    @php
-                        $projectTotals = [];
-                        foreach ($projectData as $d) {
-                            $projectTotals[$d['currency']] = ($projectTotals[$d['currency']] ?? 0) + $d['total'];
-                        }
-                    @endphp
-                    <tr class="fw-bold">
-                        <td>Итого</td>
-                        <td>
-                            @foreach ($projectTotals as $currency => $total)
-                                {{ $currency }}: {{ number_format((float) $total, 2, '.', ' ') }}
-                                @if (!$loop->last)
-                                    <br>
-                                @endif
-                            @endforeach
-                        </td>
-                    </tr>
                 </tbody>
             </table>
-        @else
-            <p class="text-center">Данных для таблицы нет</p>
-        @endif
+        </div>
     </div>
-</div>
+
+
+    <div class="card mb-4 shadow-sm p-3" x-data="{ open: true }">
+        <div class="d-flex justify-content-between align-items-center">
+            <h3 class="font-bold text-lg">Расходы по проектам:</h3>
+            <button type="button" class="btn btn-outline btn-sm" @click="open = !open">
+                <i class="fas" :class="open ? 'fa-chevron-up' : 'fa-chevron-down'"></i>
+            </button>
+        </div>
+        <div x-show="open" x-transition>
+            <div style="height: 300px;">
+                <livewire:livewire-column-chart key="{{ $projectChart->reactiveKey() }}" :column-chart-model="$projectChart" />
+            </div>
+            @if (count($projectData) > 0)
+                <table class="table table-bordered table-hover mt-3">
+                    <thead>
+                        <tr>
+                            <th>Проект</th>
+                            <th>Сумма расходов</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach ($projectData as $data)
+                            <tr>
+                                <td>{{ $data['project'] }}</td>
+                                <td>
+                                    {{ number_format((float) $data['total'], 2, '.', ' ') }} {{ $data['currency'] }}
+                                </td>
+                            </tr>
+                        @endforeach
+                        @php
+                            $projectTotals = [];
+                            foreach ($projectData as $d) {
+                                $projectTotals[$d['currency']] = ($projectTotals[$d['currency']] ?? 0) + $d['total'];
+                            }
+                        @endphp
+                        <tr class="fw-bold">
+                            <td>Итого</td>
+                            <td>
+                                @foreach ($projectTotals as $currency => $total)
+                                    {{ $currency }}: {{ number_format((float) $total, 2, '.', ' ') }}
+                                    @if (!$loop->last)
+                                        <br>
+                                    @endif
+                                @endforeach
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            @else
+                <p class="text-center">Данных для таблицы нет</p>
+            @endif
+        </div>
+    </div>
 
 </div>
 {{-- <script>

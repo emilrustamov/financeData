@@ -21,6 +21,9 @@ class RecordForm extends Component
         $cashID = null, $cashRegFltr, $typeFilter = null, $searchTerm, $object,
         $objects, $objectCategories = [], $projects = [], $project, $category = null,
         $isCashClosedRecord = false;
+    public $projectFilter = null;
+    public $contragentCategoryFilter = null;
+    public $contragentObjectFilter   = null;
 
     protected $listeners = [
         'openRecordModal'   => 'handleOpenRecordModal',
@@ -80,6 +83,11 @@ class RecordForm extends Component
             ->when($this->filterType === 'monthly', fn($q) => $q->whereBetween('date', [now()->startOfMonth(), now()->endOfMonth()]))
             ->when($this->filterType === 'custom' && $this->startDate && $this->endDate, fn($q) => $q->whereBetween('date', [$this->startDate, $this->endDate]))
             ->when(!is_null($this->typeFilter), fn($q) => $q->where('type', $this->typeFilter))
+            ->when($this->projectFilter, fn($q) => $q->where('project_id', $this->projectFilter))
+            // Фильтрация по категории контрагента
+            ->when($this->contragentCategoryFilter, fn($q) => $q->where('category_id', $this->contragentCategoryFilter))
+            // Фильтрация по контрагенту
+            ->when($this->contragentObjectFilter, fn($q) => $q->where('object_id', $this->contragentObjectFilter))
             ->when($this->searchTerm && mb_strlen($this->searchTerm) >= 3, function ($q) {
                 $q->where(function ($query) {
                     $query->where('description', 'like', '%' . $this->searchTerm . '%')
@@ -88,6 +96,40 @@ class RecordForm extends Component
                 });
             });
     }
+
+    public function filterByProject($projectId)
+    {
+        // Если уже выбран данный проект — сбрасываем фильтр
+        if ($this->projectFilter == $projectId) {
+            $this->projectFilter = null;
+        } else {
+            $this->projectFilter = $projectId;
+        }
+        // Сбрасываем постраничную навигацию
+        $this->resetPage();
+    }
+
+    public function filterByContragentCategory($categoryId)
+    {
+        if ($this->contragentCategoryFilter == $categoryId) {
+            $this->contragentCategoryFilter = null;
+        } else {
+            $this->contragentCategoryFilter = $categoryId;
+        }
+        $this->resetPage();
+    }
+
+    // Метод для фильтрации по контрагенту (объекту)
+    public function filterByContragentObject($objectId)
+    {
+        if ($this->contragentObjectFilter == $objectId) {
+            $this->contragentObjectFilter = null;
+        } else {
+            $this->contragentObjectFilter = $objectId;
+        }
+        $this->resetPage();
+    }
+
 
     public function openForm($id = null)
     {
@@ -233,15 +275,15 @@ class RecordForm extends Component
             ->when($this->filterType === 'weekly', fn($q) => $q->whereBetween('date', [now()->startOfWeek(), now()->endOfWeek()]))
             ->when($this->filterType === 'monthly', fn($q) => $q->whereBetween('date', [now()->startOfMonth(), now()->endOfMonth()]))
             ->when($this->filterType === 'custom' && $this->startDate && $this->endDate, fn($q) => $q->whereBetween('date', [$this->startDate, $this->endDate]));
-    
+
         if (!Auth::user()->is_admin) {
             $queryDaily->whereIn('cash_id', $this->cashRegisters->pluck('id')->toArray());
         }
-    
+
         $dailyData = $queryDaily->selectRaw('type, SUM(amount) as total')
             ->groupBy('type')
             ->pluck('total', 'type');
-    
+
         $queryTotal = Record::query()
             ->when($this->cashRegFltr, fn($q) => $q->where('cash_id', $this->cashRegFltr));
         if (!Auth::user()->is_admin) {
@@ -250,12 +292,12 @@ class RecordForm extends Component
         $totalData = $queryTotal->selectRaw('type, SUM(amount) as total')
             ->groupBy('type')
             ->pluck('total', 'type');
-    
+
         $dailyIncome  = $dailyData->get(1, 0);
         $dailyExpense = $dailyData->get(0, 0);
         $totalIncome  = $totalData->get(1, 0);
         $totalExpense = $totalData->get(0, 0);
-    
+
         return [
             'income'       => $dailyIncome,
             'expense'      => $dailyExpense,

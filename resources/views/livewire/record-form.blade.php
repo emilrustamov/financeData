@@ -88,8 +88,8 @@
             <div class="row g-3">
                 <div class="col-md-3">
                     <select wire:model.change="cashRegFltr" class="form-control">
-                                               <option value="">Все кассы</option>
-                                @foreach ($cashRegisters as $cash)
+                        <option value="">Все кассы</option>
+                        @foreach ($cashRegisters as $cash)
                             <option value="{{ $cash->id }}">{{ $cash->title }}</option>
                         @endforeach
                     </select>
@@ -225,21 +225,80 @@
                 @foreach ($records as $record)
                     @if (!$typeFilter || $record->type === $typeFilter)
                         <tr>
-                            <td
-                                class="@if ($record->type === 1) bg-success text-white @elseif ($record->type === 0) bg-danger text-white @endif">
-                                {{ $record->type === 1 ? 'Приход' : 'Расход' }}
+                            <td>
+                                @if ($record->transferFrom || $record->transferTo)
+                                    <button class="btn btn-info btn-sm" title="Трансфер">
+                                        <i class="bi bi-arrow-left-right"></i>
+                                    </button>
+                                @elseif ($record->type === 1)
+                                    <button class="btn btn-success btn-sm" title="Приход">
+                                        <i class="bi bi-arrow-up"></i>
+                                    </button>
+                                @elseif ($record->type === 0)
+                                    <button class="btn btn-danger btn-sm" title="Расход">
+                                        <i class="bi bi-arrow-down"></i>
+                                    </button>
+                                @endif
                             </td>
+
                             <td class="description-cell" title="{{ $record->description }}">
                                 {!! highlightText($record->description, $searchTerm) !!}
                             </td>
                             <td class="amount-cell">{{ number_format($record->amount, 2, '.', ' ') }}</td>
-                            <td>{{ $record->project ? $record->project->title : '-' }}</td>
-                            <td class="contragent-cell">
-                                {!! highlightText(
-                                    ($record->category ? $record->category->title : '-') . ': ' . ($record->object ? $record->object->title : '-'),
-                                    $searchTerm,
-                                ) !!}
+                            <td>
+                                @if ($record->project)
+                                    <span style="cursor:pointer; text-decoration: underline; color: blue;"
+                                          wire:click="filterByProject({{ $record->project->id }})"
+                                          title="Нажмите для фильтрации по этому проекту">
+                                        {{ $record->project->title }}
+                                    </span>
+                                    @if ($projectFilter == $record->project->id)
+                                        <i class="bi bi-funnel-fill text-primary"
+                                           style="cursor:pointer; margin-left:5px; font-size: 1.2rem;"
+                                           title="Очистить фильтр по проекту"
+                                           wire:click="filterByProject({{ $record->project->id }})"></i>
+                                    @endif
+                                @else
+                                    -
+                                @endif
                             </td>
+                            <td class="contragent-cell">
+                                @if ($record->category)
+                                    <span style="cursor:pointer; text-decoration: underline; color: blue;"
+                                          wire:click="filterByContragentCategory({{ $record->category->id }})"
+                                          title="Нажмите для фильтрации по категории контрагента">
+                                        {{ $record->category->title }}
+                                    </span>
+                                    @if ($contragentCategoryFilter == $record->category->id)
+                                        <i class="bi bi-funnel-fill text-primary"
+                                           style="cursor:pointer; margin-left:5px; font-size: 1.2rem;"
+                                           title="Очистить фильтр по категории"
+                                           wire:click="filterByContragentCategory({{ $record->category->id }})"></i>
+                                    @endif
+                                @else
+                                    -
+                                @endif
+
+                                :
+
+                                @if ($record->object)
+                                    <span style="cursor:pointer; text-decoration: underline; color: blue;"
+                                          wire:click="filterByContragentObject({{ $record->object->id }})"
+                                          title="Нажмите для фильтрации по контрагенту">
+                                        {{ $record->object->title }}
+                                    </span>
+                                    @if ($contragentObjectFilter == $record->object->id)
+                                        <i class="bi bi-funnel-fill text-primary"
+                                           style="cursor:pointer; margin-left:5px; font-size: 1.2rem;"
+                                           title="Очистить фильтр по контрагенту"
+                                           wire:click="filterByContragentObject({{ $record->object->id }})"></i>
+                                    @endif
+                                @else
+                                    -
+                                @endif
+                            </td>
+                            
+                            
                             <td>{{ $record->user->name }}</td>
                             <td>{{ \Carbon\Carbon::parse($record->date)->translatedFormat('d.m.y') }}</td>
                             <td>
