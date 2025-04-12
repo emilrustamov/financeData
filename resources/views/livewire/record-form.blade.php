@@ -87,12 +87,14 @@
         <div class="card-body" x-show="open">
             <div class="row g-3">
                 <div class="col-md-3">
-                    <select wire:model.change="cashRegFltr" class="form-control">
-                        <option value="">Все кассы</option>
-                        @foreach ($cashRegisters as $cash)
-                            <option value="{{ $cash->id }}">{{ $cash->title }}</option>
-                        @endforeach
-                    </select>
+                    <select id="cashRegFltr" wire:model="cashRegFltr" class="form-control"
+                    onchange="localStorage.setItem('cashRegFltr', this.value)">
+                    <option value="">Все кассы</option>
+                    @foreach ($cashRegisters as $cash)
+                        <option value="{{ $cash->id }}">{{ $cash->title }}</option>
+                    @endforeach
+                </select>
+                
                 </div>
                 <div class="col-md-3">
                     <input type="text" class="form-control mb-3" placeholder="Поиск по описанию или клиенту"
@@ -507,3 +509,27 @@
         }
     });
 </script>
+<script>
+    function restoreCashSelect() {
+        const savedCash = localStorage.getItem('cashRegFltr') || "";
+        const select = document.getElementById('cashRegFltr');
+        if (select) {
+            if (select.value !== savedCash) {
+                select.value = savedCash;
+                select.dispatchEvent(new Event('change'));
+            }
+        }
+    }
+
+    const observer = new MutationObserver(function(mutations, obs) {
+        restoreCashSelect();
+    });
+
+    document.addEventListener("DOMContentLoaded", () => {
+        observer.observe(document.body, { childList: true, subtree: true });
+        restoreCashSelect();
+    });
+</script>
+
+
+
