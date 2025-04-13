@@ -6,6 +6,7 @@ use App\Livewire\ObjectForm;
 use App\Livewire\ProjectForm;
 use App\Livewire\TransferForm;
 use App\Livewire\Dashboard;
+use App\Livewire\DashboardComponent;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Auth;
 
@@ -29,3 +30,7 @@ Route::middleware(['auth', 'can:view objects'])->get('/object-form', ObjectForm:
 Route::middleware(['auth', 'can:view projects'])->get('/project-form', ProjectForm::class)->name('project.form');
 Route::middleware(['auth', 'can:view analytics'])->get('/dashboard', Dashboard::class)->name('dashboard.index');
 Route::middleware(['auth', 'can:view transfers'])->get('/transfer-form', TransferForm::class)->name('transfer.form');
+Route::middleware(['auth', 'can:view analytics'])
+    ->get('/dashboard-component', DashboardComponent::class)
+    ->name('dashboard.component');
+
