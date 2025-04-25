@@ -11,6 +11,7 @@ use App\Models\Cash;
 use App\Models\Objects;
 use Asantibanez\LivewireCharts\Models\PieChartModel;
 use Asantibanez\LivewireCharts\Models\ColumnChartModel;
+use Illuminate\Support\HtmlString;
 
 class DashboardComponent extends Component
 {
@@ -34,6 +35,10 @@ class DashboardComponent extends Component
     public $allCashes = [];
     public $allObjects = [];
 
+    protected $listeners = [
+        'filterCategory' => 'filterCategory', // 👈 событие ⇒ метод
+    ];
+
     public function mount()
     {
         // Период 1: текущий месяц
@@ -45,11 +50,25 @@ class DashboardComponent extends Component
         $this->compareEndDate   = Carbon::now()->subMonth()->endOfMonth()->toDateString();
 
         // Заполняем справочники (id => title)
-        $this->allCategories = ObjectCategories::pluck('title','id')->toArray();
-        $this->allProjects   = Projects::pluck('title','id')->toArray();
-        $this->allCashes     = Cash::pluck('title','id')->toArray();
-        $this->allObjects    = Objects::pluck('title','id')->toArray();
+        $this->allCategories = ObjectCategories::pluck('title', 'id')->toArray();
+        $this->allProjects   = Projects::pluck('title', 'id')->toArray();
+        $this->allCashes     = Cash::pluck('title', 'id')->toArray();
+        $this->allObjects    = Objects::pluck('title', 'id')->toArray();
     }
+
+    public function filterCategory(array $slice): void
+    {
+        $catId = $slice['extras']['cat_id'] ?? null;
+
+        if ($catId) {
+            // категория уже единственная? -> снимаем фильтр
+            $this->selectedCategories =
+                (count($this->selectedCategories) === 1 && $this->selectedCategories[0] == $catId)
+                ? []          // показать всё
+                : [$catId];   // показать выбранную
+        }
+    }
+
 
     /**
      * Записи основного периода (основные данные)
@@ -58,7 +77,7 @@ class DashboardComponent extends Component
     {
         $query = Record::where('type', 0)
             ->whereBetween('date', [$this->startDate, $this->endDate])
-            ->with(['category','project','cash','object']);
+            ->with(['category', 'project', 'cash', 'object']);
 
         // Если выбраны категории
         if (!empty($this->selectedCategories)) {
@@ -74,7 +93,18 @@ class DashboardComponent extends Component
         if (!empty($this->filterObjectIds)) {
             $query->whereIn('object_id', $this->filterObjectIds);
         }
-        return $query->orderBy('date','desc')->get();
+        return $query->orderBy('date', 'desc')->get();
+    }
+
+
+    public function updatedStartDate()
+    {
+        $this->selectedCategories = [];
+    }
+
+    public function updatedEndDate()
+    {
+        $this->selectedCategories = [];
     }
 
     /**
@@ -84,7 +114,7 @@ class DashboardComponent extends Component
     {
         $query = Record::where('type', 0)
             ->whereBetween('date', [$this->compareStartDate, $this->compareEndDate])
-            ->with(['category','project','cash','object']);
+            ->with(['category', 'project', 'cash', 'object']);
 
         if (!empty($this->selectedCategories)) {
             $query->whereIn('category_id', $this->selectedCategories);
@@ -98,7 +128,7 @@ class DashboardComponent extends Component
         if (!empty($this->filterObjectIds)) {
             $query->whereIn('object_id', $this->filterObjectIds);
         }
-        return $query->orderBy('date','desc')->get();
+        return $query->orderBy('date', 'desc')->get();
     }
 
     // -- Toggle-методы --
@@ -150,19 +180,43 @@ class DashboardComponent extends Component
         // (A) Пир-диаграмма по категориям (Период 1)
         $grouped1 = $records->groupBy('category_id')->map->sum('amount');
         $pieChartModel = (new PieChartModel())
-            ->setTitle('Расходы по категориям (Период 1)')
-            ->setAnimated(true)
-            ->legendPositionBottom();
-
+        ->setTitle('Расходы по категориям (Период 1)')
+        ->setAnimated(true)
+        ->legendPositionBottom()
+        ->withOnSliceClickEvent('filterCategory')
+        ->withDataLabels()
+        ->setJsonConfig([
+            'dataLabels.formatter' => "function(val, opts) {
+                var p = opts.w.globals.seriesPercent[opts.seriesIndex][0];
+                return p < 3 ? '' : p.toFixed(1) + '%'; // Убрали значение, оставили только процент
+            }",
+        ], JSON_UNESCAPED_SLASHES | JSON_HEX_APOS);
+    
+    
+    
         $colors = [
-            '#f6ad55', '#fc8181', '#90cdf4', '#68d391',
-            '#e53e3e', '#4299e1', '#ed8936', '#48bb78',
-            '#9f7aea', '#38b2ac',
+            '#f6ad55',
+            '#fc8181',
+            '#90cdf4',
+            '#68d391',
+            '#e53e3e',
+            '#4299e1',
+            '#ed8936',
+            '#48bb78',
+            '#9f7aea',
+            '#38b2ac',
         ];
         $i = 0;
         foreach ($grouped1 as $catId => $sum) {
             $title = $this->allCategories[$catId] ?? 'Без категории';
-            $pieChartModel->addSlice($title, floatval($sum), $colors[$i % count($colors)]);
+
+            // extras[] попадёт в $slice['extras']
+            $pieChartModel->addSlice(
+                $title,
+                (float) $sum,
+                $colors[$i % count($colors)],
+                ['cat_id' => $catId]                 // 👈 передаём ID
+            );
             $i++;
         }
 
@@ -214,6 +268,24 @@ class DashboardComponent extends Component
             $cashComparisonTableData = $groupedByCash;
         }
 
+        $categorySummary = $grouped1->map(function ($sum, $catId) use ($records) {
+            return [
+                'cat_id'     => $catId,
+                'title'      => $this->allCategories[$catId] ?? 'Без категории',
+                'trx_count'  => $records->where('category_id', $catId)->count(),
+                'amount'     => $sum,
+            ];
+        })->sortByDesc('amount');   // по убыванию суммы
+
+        $compareCategorySummary = $group2->map(function ($sum, $catId) use ($compareRecords) {
+            return [
+                'cat_id'     => $catId,
+                'title'      => $this->allCategories[$catId] ?? 'Без категории',
+                'trx_count'  => $compareRecords->where('category_id', $catId)->count(),
+                'amount'     => $sum,
+            ];
+        })->sortByDesc('amount');
+
         return view('livewire.dashboard-component', [
             'records' => $records,
             'compareRecords' => $compareRecords,
@@ -223,6 +295,8 @@ class DashboardComponent extends Component
             'compareChart' => $compareChart,
             'cashComparisonChart' => $cashComparisonChart,
             'cashComparisonTableData' => $cashComparisonTableData,
+            'categorySummary' => $categorySummary,
+            'compareCategorySummary' => $compareCategorySummary,
         ]);
     }
 }

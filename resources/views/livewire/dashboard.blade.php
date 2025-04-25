@@ -1,5 +1,4 @@
 <div class="container pdf-container">
-
     <div style="position: fixed; bottom: 20px; right: 20px; z-index: 9999;" class="bg-white p-3 rounded shadow-sm">
         <div class="mb-2">
             <label for="startDate" class="form-label">
@@ -77,8 +76,6 @@
         </div>
     </div>
 
-
-    <!-- filepath: d:\OSPanel\domains\financeData\resources\views\livewire\dashboard.blade.php -->
     <div class="card mb-4 shadow-sm p-3" x-data="{ open: true }">
         <div class="d-flex justify-content-between align-items-center">
             <h3 class="font-bold text-lg">Расходы по категориям:</h3>
@@ -86,15 +83,7 @@
                 <i class="fas" :class="open ? 'fa-chevron-up' : 'fa-chevron-down'"></i>
             </button>
         </div>
-        <div class="p-3">
-            <select wire:model.live="selectedCategory" class="form-select mb-3">
-                <option value="">Все категории</option>
-                @foreach ($catFilterOptions as $catOption)
-                    <option value="{{ $catOption }}">{{ $catOption }}</option>
-                @endforeach
-            </select>
-        </div>
-
+    
         @if ($selectedCategory == '')
             <div x-show="open" x-transition>
                 <div style="height: 300px;">
@@ -115,7 +104,11 @@
                     <tbody>
                         @foreach ($catSummary as $catName => $cashData)
                             <tr>
-                                <td>{{ $catName }}</td>
+                                <td>
+                                    <button wire:click="$set('selectedCategory', '{{ $catName }}')" class="btn btn-link p-0">
+                                        {{ $catName }}
+                                    </button>
+                                </td>
                                 <td>
                                     @php
                                         $totalsByCurrency = [];
@@ -141,65 +134,28 @@
             </div>
         @else
             <div x-show="open" x-transition>
+                <button wire:click="$set('selectedCategory', '')" class="btn btn-secondary mb-3">Назад к группировке</button>
                 <h4>Детальная информация для категории "{{ $selectedCategory }}"</h4>
-
-                @if (isset($availableMonths) && count($availableMonths) > 0)
-                    <div class="mb-3">
-                        <label for="selectedMonth" class="form-label">Выберите месяц:</label>
-                        <select wire:model.live="selectedMonth" id="selectedMonth" class="form-select">
-                            @foreach ($availableMonths as $monthKey => $monthLabel)
-                                <option value="{{ $monthKey }}">{{ $monthLabel }}</option>
-                            @endforeach
-                        </select>
-                    </div>
-                @endif
-
-                @if ($catMonthlyChart)
-                    <div style="height: 300px;">
-                        <livewire:livewire-column-chart key="{{ $catMonthlyChart->reactiveKey() }}"
-                            :column-chart-model="$catMonthlyChart" />
-                    </div>
-                @endif
-
-                <div class="mt-3">
-                    <h5>Данные за {{ $availableMonths[$selectedMonth] ?? '' }}</h5>
-                    <table class="table table-bordered table-striped">
-                        <tfoot>
+                <table class="table table-bordered table-striped mt-3">
+                    <thead>
+                        <tr>
+                            <th>Дата</th>
+                            <th>Проект</th>
+                            <th>Контрагенты</th>
+                            <th>Сумма</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach ($detailedCatRecords as $record)
                             <tr>
-                                <th>Проекты</th>
-                                <td colspan="2">
-                                    @php
-                                        $projects = $detailedCatRecords
-                                            ->map(function ($record) {
-                                                return isset($record->project) ? $record->project->title : 'N/A';
-                                            })
-                                            ->unique();
-                                    @endphp
-                                    {{ $projects->implode(', ') }}
-                                </td>
+                                <td>{{ $record->date }}</td>
+                                <td>{{ isset($record->project) ? $record->project->title : 'N/A' }}</td>
+                                <td>{{ isset($record->object) ? $record->object->title : 'N/A' }}</td>
+                                <td>{{ number_format($record->amount, 2, '.', ' ') }}</td>
                             </tr>
-                            <tr>
-                                <th>Контрагенты</th>
-                                <td colspan="2">
-                                    @php
-                                        $counteragents = $detailedCatRecords
-                                            ->map(function ($record) {
-                                                return isset($record->object) ? $record->object->title : 'N/A';
-                                            })
-                                            ->unique();
-                                    @endphp
-                                    {{ $counteragents->implode(', ') }}
-                                </td>
-                            </tr>
-                            <tr class="fw-bold">
-                                <th>Итоговая сумма</th>
-                                <td colspan="2">
-                                    {{ number_format($detailedCatRecords->sum('amount'), 2, '.', ' ') }}
-                                </td>
-                            </tr>
-                        </tfoot>
-                    </table>
-                </div>
+                        @endforeach
+                    </tbody>
+                </table>
             </div>
         @endif
     </div>
@@ -319,29 +275,4 @@
             @endif
         </div>
     </div>
-
 </div>
-{{-- <script>
-    document.getElementById('downloadPdf').addEventListener('click', function () {
-        html2canvas(document.querySelector('.pdf-container')).then(canvas => {
-            const imgData = canvas.toDataURL('image/png');
-            const pdf = new jspdf.jsPDF('p', 'mm', 'a4');
-            const imgWidth = 210;
-            const pageHeight = 295;
-            const imgHeight = canvas.height * imgWidth / canvas.width;
-            let heightLeft = imgHeight;
-            let position = 0;
-
-            pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
-            heightLeft -= pageHeight;
-
-            while (heightLeft >= 0) {
-                position = heightLeft - imgHeight;
-                pdf.addPage();
-                pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
-                heightLeft -= pageHeight;
-            }
-            pdf.save('dashboard.pdf');
-        });
-    });
-</script> --}}

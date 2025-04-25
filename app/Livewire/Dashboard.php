@@ -25,6 +25,19 @@ class Dashboard extends Component
     public $selectedCategory = '';
     public $selectedObj = '';
     public $selectedMonth = '';
+    protected $listeners = [
+        'onCategorySliceClick' => 'filterByCategoryFromChart',
+    ];
+    public function setCategory($category)
+    {
+        $this->selectedCategory = $category;
+    }
+
+    public function filterByCategoryFromChart($category)
+    {
+        $this->selectedCategory = $category;
+    }
+    
 
     public function mount()
     {
@@ -198,9 +211,27 @@ class Dashboard extends Component
                 'categories' => array_keys($catSummary),
                 'labels' => ['show' => 1]
             ],
+
         ];
+        // После формирования диаграммы по категориям, добавьте в конфиг:
+        $catStackedChart->jsonConfig = array_merge($catStackedChart->jsonConfig, [
+            'plotOptions' => [
+                'series' => [
+                    'cursor' => 'pointer',
+                    'point' => [
+                        'events' => [
+                            'click' => 'function() {
+                                var category = this.series.chart.xAxis[0].categories[this.x];
+                                Livewire.dispatch("categorySelected", category);
+                            }'
+                        ]
+                    ]
+                ]
+            ]
+        ]);
 
         $detailedCatRecords = collect([]);
+        $catMonthlyChart = null;
         if (!empty($this->selectedCategory)) {
             $catIds = $groupedCategories[$this->selectedCategory] ?? [];
             $detailedCatRecords = Record::where('type', 0)
@@ -208,23 +239,7 @@ class Dashboard extends Component
                 ->whereIn('cash_id', $this->selectedCashes)
                 ->whereIn('category_id', $catIds)
                 ->get();
-        }
-
-        $catMonthlyChart = null;
-        if (!empty($this->selectedCategory)) {
-            $catMonthlyChart = new ColumnChartModel();
-            $catMonthlyChart->setColumnWidth(30);
-            $monthsData = $detailedCatRecords->groupBy(function ($record) {
-                return \Carbon\Carbon::parse($record->date)->format('Y-m');
-            })->sortKeys();
-
-            foreach ($monthsData as $month => $records) {
-                $total = $records->sum('amount');
-                $monthLabel = \Carbon\Carbon::parse($month . '-01')
-                    ->locale('ru')
-                    ->translatedFormat('F Y');
-                $catMonthlyChart->addColumn($monthLabel, $total, '#4299e1');
-            }
+            // Удаляем фильтрацию по месяцу, т.к. показываем все транзакции
         }
 
         // Формирование массива доступных месяцев (без будущих)
