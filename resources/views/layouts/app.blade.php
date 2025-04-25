@@ -33,8 +33,8 @@
                             </li>
                             @can('view analytics')
                                 <li class="nav-item">
-                                    <a class="nav-link {{ Request::routeIs('dashboard.index') ? 'active' : '' }}"
-                                        href="{{ route('dashboard.index') }}">Аналитика</a>
+                                    <a class="nav-link {{ Request::routeIs('dashboard.component') ? 'active' : '' }}"
+                                        href="{{ route('dashboard.component') }}">Аналитика</a>
                                 </li>
                             @endcan
                             @can('view objects')
