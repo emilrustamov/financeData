@@ -88,20 +88,21 @@
             <div class="row g-3">
                 <div class="col-md-3">
                     <select id="cashRegFltr" wire:model="cashRegFltr" class="form-control"
-                    onchange="localStorage.setItem('cashRegFltr', this.value)">
-                    <option value="">Все кассы</option>
-                    @foreach ($cashRegisters as $cash)
-                        <option value="{{ $cash->id }}">{{ $cash->title }}</option>
-                    @endforeach
-                </select>
-                
+                        onchange="localStorage.setItem('cashRegFltr', this.value)">
+                        <option value="">Все кассы</option>
+                        @foreach ($cashRegisters as $cash)
+                            <option value="{{ $cash->id }}">{{ $cash->title }}</option>
+                        @endforeach
+                    </select>
+
                 </div>
                 <div class="col-md-3">
                     <input type="text" class="form-control mb-3" placeholder="Поиск по описанию или клиенту"
                         wire:model.live.debounce:250="searchTerm">
                 </div>
                 <div class="col-md-3">
-                    <select id="filterType" class="form-control" wire:model.change="filterType">
+                    <select id="filterType" class="form-control" wire:model.change="filterType"
+                        onchange="localStorage.setItem('filterType', this.value)">
                         <option value="daily">За день</option>
                         <option value="weekly">За неделю</option>
                         <option value="monthly">За месяц</option>
@@ -113,18 +114,24 @@
 
                     @if ($filterType === 'daily')
                         <input type="date" id="dateFilter" class="form-control" wire:model.lazy="dateFilter"
-                            max="{{ date('Y-m-d') }}">
+                            max="{{ date('Y-m-d') }}" onchange="localStorage.setItem('dateFilter', this.value)">
                     @endif
 
                     @if ($filterType === 'custom')
                         <div class="row">
                             <div class="col">
-                                <input type="date" id="startDate" class="form-control" wire:model.live="startDate"
-                                    max="{{ date('Y-m-d') }}">
+                                <input type="date" id="startDate"
+                                class="form-control"
+                                wire:model.live="startDate"
+                                max="{{ date('Y-m-d') }}"
+                                onchange="localStorage.setItem('startDate', this.value)">
                             </div>
                             <div class="col">
-                                <input type="date" id="endDate" class="form-control" wire:model.live="endDate"
-                                    max="{{ date('Y-m-d') }}">
+                                <input type="date" id="endDate"
+                                class="form-control"
+                                wire:model.live="endDate"
+                                max="{{ date('Y-m-d') }}"
+                                onchange="localStorage.setItem('endDate', this.value)">
                             </div>
                         </div>
                     @endif
@@ -250,15 +257,15 @@
                             <td>
                                 @if ($record->project)
                                     <span style="cursor:pointer; text-decoration: underline; color: blue;"
-                                          wire:click="filterByProject({{ $record->project->id }})"
-                                          title="Нажмите для фильтрации по этому проекту">
+                                        wire:click="filterByProject({{ $record->project->id }})"
+                                        title="Нажмите для фильтрации по этому проекту">
                                         {{ $record->project->title }}
                                     </span>
                                     @if ($projectFilter == $record->project->id)
                                         <i class="bi bi-funnel-fill text-primary"
-                                           style="cursor:pointer; margin-left:5px; font-size: 1.2rem;"
-                                           title="Очистить фильтр по проекту"
-                                           wire:click="filterByProject({{ $record->project->id }})"></i>
+                                            style="cursor:pointer; margin-left:5px; font-size: 1.2rem;"
+                                            title="Очистить фильтр по проекту"
+                                            wire:click="filterByProject({{ $record->project->id }})"></i>
                                     @endif
                                 @else
                                     -
@@ -267,15 +274,15 @@
                             <td class="contragent-cell">
                                 @if ($record->category)
                                     <span style="cursor:pointer; text-decoration: underline; color: blue;"
-                                          wire:click="filterByContragentCategory({{ $record->category->id }})"
-                                          title="Нажмите для фильтрации по категории контрагента">
+                                        wire:click="filterByContragentCategory({{ $record->category->id }})"
+                                        title="Нажмите для фильтрации по категории контрагента">
                                         {{ $record->category->title }}
                                     </span>
                                     @if ($contragentCategoryFilter == $record->category->id)
                                         <i class="bi bi-funnel-fill text-primary"
-                                           style="cursor:pointer; margin-left:5px; font-size: 1.2rem;"
-                                           title="Очистить фильтр по категории"
-                                           wire:click="filterByContragentCategory({{ $record->category->id }})"></i>
+                                            style="cursor:pointer; margin-left:5px; font-size: 1.2rem;"
+                                            title="Очистить фильтр по категории"
+                                            wire:click="filterByContragentCategory({{ $record->category->id }})"></i>
                                     @endif
                                 @else
                                     -
@@ -285,22 +292,22 @@
 
                                 @if ($record->object)
                                     <span style="cursor:pointer; text-decoration: underline; color: blue;"
-                                          wire:click="filterByContragentObject({{ $record->object->id }})"
-                                          title="Нажмите для фильтрации по контрагенту">
+                                        wire:click="filterByContragentObject({{ $record->object->id }})"
+                                        title="Нажмите для фильтрации по контрагенту">
                                         {{ $record->object->title }}
                                     </span>
                                     @if ($contragentObjectFilter == $record->object->id)
                                         <i class="bi bi-funnel-fill text-primary"
-                                           style="cursor:pointer; margin-left:5px; font-size: 1.2rem;"
-                                           title="Очистить фильтр по контрагенту"
-                                           wire:click="filterByContragentObject({{ $record->object->id }})"></i>
+                                            style="cursor:pointer; margin-left:5px; font-size: 1.2rem;"
+                                            title="Очистить фильтр по контрагенту"
+                                            wire:click="filterByContragentObject({{ $record->object->id }})"></i>
                                     @endif
                                 @else
                                     -
                                 @endif
                             </td>
-                            
-                            
+
+
                             <td>{{ $record->user->name }}</td>
                             <td>{{ \Carbon\Carbon::parse($record->date)->translatedFormat('d.m.y') }}</td>
                             <td>
@@ -526,10 +533,61 @@
     });
 
     document.addEventListener("DOMContentLoaded", () => {
-        observer.observe(document.body, { childList: true, subtree: true });
+        observer.observe(document.body, {
+            childList: true,
+            subtree: true
+        });
         restoreCashSelect();
     });
 </script>
-
-
-
+<script>
+    function restoreFilters() {
+        /* --- касса (у вас уже было) --- */
+        const cashSel = document.getElementById('cashRegFltr');
+        const savedCash = localStorage.getItem('cashRegFltr') || "";
+        if (cashSel && cashSel.value !== savedCash) {
+            cashSel.value = savedCash;
+            cashSel.dispatchEvent(new Event('change'));
+        }
+    
+        /* --- тип периода --- */
+        const filterTypeSel = document.getElementById('filterType');
+        const savedType = localStorage.getItem('filterType') || "daily";
+        if (filterTypeSel && filterTypeSel.value !== savedType) {
+            filterTypeSel.value = savedType;
+            filterTypeSel.dispatchEvent(new Event('change'));
+        }
+    
+        /* --- дата за день --- */
+        const dateInp = document.getElementById('dateFilter');
+        const savedDate = localStorage.getItem('dateFilter') || "";
+        if (dateInp && dateInp.value !== savedDate) {
+            dateInp.value = savedDate;
+            dateInp.dispatchEvent(new Event('input'));
+            dateInp.dispatchEvent(new Event('change'));
+        }
+    
+        /* --- пользовательский диапазон --- */
+        const startInp = document.getElementById('startDate');
+        const savedStart = localStorage.getItem('startDate') || "";
+        if (startInp && startInp.value !== savedStart) {
+            startInp.value = savedStart;
+            startInp.dispatchEvent(new Event('input'));
+        }
+    
+        const endInp = document.getElementById('endDate');
+        const savedEnd = localStorage.getItem('endDate') || "";
+        if (endInp && endInp.value !== savedEnd) {
+            endInp.value = savedEnd;
+            endInp.dispatchEvent(new Event('input'));
+        }
+    }
+    
+    /* тот же MutationObserver, что уже был */
+    document.addEventListener('DOMContentLoaded', () => {
+        const obs = new MutationObserver(() => restoreFilters());
+        obs.observe(document.body, { childList: true, subtree: true });
+        restoreFilters();
+    });
+    </script>
+    
