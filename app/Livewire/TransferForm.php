@@ -8,9 +8,11 @@ use App\Models\Record;
 use Livewire\Component;
 use Illuminate\Support\Facades\Auth;
 use App\Models\CashRegister;
+use Livewire\WithPagination;
 
 class TransferForm extends Component
 {
+    use WithPagination;
     public $fromCashId;
     public $toCashId;
     public $amount;
@@ -26,7 +28,7 @@ class TransferForm extends Component
         'amount'     => 'required|numeric|min:0',
         'note'       => 'nullable|string|max:255',
     ];
-
+    protected string $paginationTheme = 'bootstrap';
     protected $listeners = ['openForm'];
 
     public function openForm($id = null)
@@ -34,18 +36,18 @@ class TransferForm extends Component
         // Сбросим все свойства формы
         $this->reset();
         $this->transferId = $id;
-        
+
         if ($id) {
             $transfer = Transfer::findOrFail($id);
             $this->fromCashId   = $transfer->from_cash_id;
             $this->toCashId     = $transfer->to_cash_id;
             $this->amount       = $transfer->amount;
             $this->note         = $transfer->note;
-            $this->date = $transfer->date; 
+            $this->date = $transfer->date;
         } else {
-            $this->date = now()->format('D M d'); 
+            $this->date = now()->format('D M d');
         }
-        
+
         $this->showForm = true;
     }
 
@@ -177,10 +179,12 @@ class TransferForm extends Component
 
     public function render()
     {
-        $transfers = Transfer::with(['fromCash', 'toCash', 'user'])->paginate(20);
-        // Загружаем кассы вместе с валютой
+        $transfers = Transfer::with(['fromCash', 'toCash', 'user'])
+            ->orderBy('date', 'desc')
+            ->paginate(10);
+    
         $cashes = Cash::with('currency')->get();
-
+    
         return view('livewire.transfer-form', [
             'transfers' => $transfers,
             'cashes'    => $cashes,

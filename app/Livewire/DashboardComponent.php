@@ -79,20 +79,33 @@ class DashboardComponent extends Component
             ->whereBetween('date', [$this->startDate, $this->endDate])
             ->with(['category', 'project', 'cash', 'object']);
 
-        // Если выбраны категории
-        if (!empty($this->selectedCategories)) {
-            $query->whereIn('category_id', $this->selectedCategories);
+        /* ---------- категории ---------- */
+        if ($this->selectedCategories) {
+            $ids        = array_filter($this->selectedCategories, fn($id) => !is_null($id));
+            $hasNullCat = in_array(null, $this->selectedCategories, true);
+
+            $query->where(function ($q) use ($ids, $hasNullCat) {
+                if ($ids) {
+                    $q->whereIn('category_id', $ids);
+                }
+                if ($hasNullCat) {
+                    $ids ? $q->orWhereNull('category_id')
+                        : $q->whereNull('category_id');
+                }
+            });
         }
-        // Фильтры по проектам, кассам, объектам
-        if (!empty($this->filterProjectIds)) {
+
+        /* ---------- остальные фильтры ---------- */
+        if ($this->filterProjectIds) {
             $query->whereIn('project_id', $this->filterProjectIds);
         }
-        if (!empty($this->filterCashIds)) {
-            $query->whereIn('cash_id', $this->filterCashIds);
+        if ($this->filterCashIds) {
+            $query->whereIn('cash_id',    $this->filterCashIds);
         }
-        if (!empty($this->filterObjectIds)) {
-            $query->whereIn('object_id', $this->filterObjectIds);
+        if ($this->filterObjectIds) {
+            $query->whereIn('object_id',  $this->filterObjectIds);
         }
+
         return $query->orderBy('date', 'desc')->get();
     }
 
@@ -116,30 +129,81 @@ class DashboardComponent extends Component
             ->whereBetween('date', [$this->compareStartDate, $this->compareEndDate])
             ->with(['category', 'project', 'cash', 'object']);
 
-        if (!empty($this->selectedCategories)) {
-            $query->whereIn('category_id', $this->selectedCategories);
+        /* ---------- категории ---------- */
+        if ($this->selectedCategories) {
+            $ids        = array_filter($this->selectedCategories, fn($id) => !is_null($id));
+            $hasNullCat = in_array(null, $this->selectedCategories, true);
+
+            $query->where(function ($q) use ($ids, $hasNullCat) {
+                if ($ids) {
+                    $q->whereIn('category_id', $ids);
+                }
+                if ($hasNullCat) {
+                    $ids ? $q->orWhereNull('category_id')
+                        : $q->whereNull('category_id');
+                }
+            });
         }
-        if (!empty($this->filterProjectIds)) {
+
+        /* ---------- остальные фильтры ---------- */
+        if ($this->filterProjectIds) {
             $query->whereIn('project_id', $this->filterProjectIds);
         }
-        if (!empty($this->filterCashIds)) {
-            $query->whereIn('cash_id', $this->filterCashIds);
+        if ($this->filterCashIds) {
+            $query->whereIn('cash_id',    $this->filterCashIds);
         }
-        if (!empty($this->filterObjectIds)) {
-            $query->whereIn('object_id', $this->filterObjectIds);
+        if ($this->filterObjectIds) {
+            $query->whereIn('object_id',  $this->filterObjectIds);
         }
+
         return $query->orderBy('date', 'desc')->get();
     }
 
     // -- Toggle-методы --
-    public function toggleCategoryFilter($catId)
+    // Livewire-класс
+    public function toggleCategoryFilter($catId = null): void
     {
-        if (in_array($catId, $this->selectedCategories)) {
-            $this->selectedCategories = array_diff($this->selectedCategories, [$catId]);
+        // если пришла пустая строка — приводим к null
+        if ($catId === '') {
+            $catId = null;
+        }
+    
+        if (in_array($catId, $this->selectedCategories, true)) {
+            $this->selectedCategories = array_values(
+                array_diff($this->selectedCategories, [$catId])
+            );
         } else {
-            $this->selectedCategories[] = $catId;
+            $this->selectedCategories[] = $catId;   // null допустим
         }
     }
+
+    private function applyCategoryFilter($query): void
+{
+    if (!$this->selectedCategories) {
+        return;
+    }
+
+    /* пустую строку также трактуем как null */
+    $ids        = array_filter(
+        $this->selectedCategories,
+        fn ($id) => $id !== '' && !is_null($id)
+    );
+    $hasNullCat = in_array(null, $this->selectedCategories, true) ||
+                  in_array('',   $this->selectedCategories, true);
+
+    $query->where(function ($q) use ($ids, $hasNullCat) {
+        if ($ids) {              // конкретные категории
+            $q->whereIn('category_id', $ids);
+        }
+        if ($hasNullCat) {       // «Без категории»
+            $ids ? $q->orWhereNull('category_id')
+                 : $q->whereNull('category_id');
+        }
+    });
+}
+
+    
+
 
     public function toggleProjectFilter($projectId)
     {
@@ -180,20 +244,20 @@ class DashboardComponent extends Component
         // (A) Пир-диаграмма по категориям (Период 1)
         $grouped1 = $records->groupBy('category_id')->map->sum('amount');
         $pieChartModel = (new PieChartModel())
-        ->setTitle('Расходы по категориям (Период 1)')
-        ->setAnimated(true)
-        ->legendPositionBottom()
-        ->withOnSliceClickEvent('filterCategory')
-        ->withDataLabels()
-        ->setJsonConfig([
-            'dataLabels.formatter' => "function(val, opts) {
+            ->setTitle('Расходы по категориям (Период 1)')
+            ->setAnimated(true)
+            ->legendPositionBottom()
+            ->withOnSliceClickEvent('filterCategory')
+            ->withDataLabels()
+            ->setJsonConfig([
+                'dataLabels.formatter' => "function(val, opts) {
                 var p = opts.w.globals.seriesPercent[opts.seriesIndex][0];
                 return p < 3 ? '' : p.toFixed(1) + '%'; // Убрали значение, оставили только процент
             }",
-        ], JSON_UNESCAPED_SLASHES | JSON_HEX_APOS);
-    
-    
-    
+            ], JSON_UNESCAPED_SLASHES | JSON_HEX_APOS);
+
+
+
         $colors = [
             '#f6ad55',
             '#fc8181',

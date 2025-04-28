@@ -56,13 +56,14 @@
             <!-- Категории -->
             @foreach ($selectedCategories as $catId)
                 <span class="badge bg-info text-dark me-2">
-                    {{ $allCategories[$catId] ?? '??' }}
+                    {{ $allCategories[$catId] ?? 'Без категории' }}
                     <a href="#" class="text-dark ms-1"
-                        wire:click.prevent="toggleCategoryFilter({{ $catId }})">
+                        wire:click.prevent="toggleCategoryFilter(@js($catId))">
                         <i class="bi bi-x-circle"></i>
                     </a>
                 </span>
             @endforeach
+
             <!-- Проекты -->
             @foreach ($filterProjectIds as $pId)
                 <span class="badge bg-warning text-dark me-2">
@@ -125,9 +126,11 @@
                     @foreach ($categorySummary as $row)
                         <tr>
                             <td>
-                                <a href="#" wire:click.prevent="toggleCategoryFilter({{ $row['cat_id'] }})">
+                                <a href="#"
+                                    wire:click.prevent="toggleCategoryFilter(@js($row['cat_id']))">
                                     {{ $row['title'] }}
                                 </a>
+
                             </td>
                             {{-- <td>{{ $row['trx_count'] }}</td> --}}
                             <td class="text-end">
@@ -151,8 +154,10 @@
                     <tr>
                         <th>Дата</th>
                         <th>Касса</th>
+                        <th>Описание</th>
                         <th>Проект</th>
                         <th>Объект</th>
+
                         <th>Сумма</th>
                     </tr>
                 </thead>
@@ -168,6 +173,12 @@
                                 @else
                                     -
                                 @endif
+                            </td>
+                            <td>
+                                <span class="desc-cell" data-bs-toggle="tooltip" data-bs-placement="top"
+                                    title="{{ $rec->description }}">
+                                    {{ $rec->description }}
+                                </span>
                             </td>
                             <td>
                                 @if ($rec->project)
@@ -196,7 +207,7 @@
                 </tbody>
                 <tfoot>
                     <tr>
-                        <th colspan="4" class="text-end">Итого</th>
+                        <th colspan="5" class="text-end">Итого</th>
                         <th class="text-end">{{ number_format($totalAmount, 2, '.', ' ') }}</th>
                     </tr>
                 </tfoot>
@@ -232,9 +243,11 @@
                     @foreach ($compareCategorySummary as $row)
                         <tr>
                             <td>
-                                <a href="#" wire:click.prevent="toggleCategoryFilter({{ $row['cat_id'] }})">
+                                <a href="#"
+                                    wire:click.prevent="toggleCategoryFilter(@js($row['cat_id']))">
                                     {{ $row['title'] }}
                                 </a>
+
                             </td>
                             <td class="text-end">
                                 {{ number_format($row['amount'], 2, '.', ' ') }}
@@ -257,6 +270,7 @@
                     <tr>
                         <th>Дата</th>
                         <th>Касса</th>
+                        <th>Описание</th>
                         <th>Проект</th>
                         <th>Объект</th>
                         <th>Сумма</th>
@@ -274,6 +288,12 @@
                                 @else
                                     -
                                 @endif
+                            </td>
+                            <td>
+                                <span class="desc-cell" data-bs-toggle="tooltip" data-bs-placement="top"
+                                    title="{{ $rec->description }}">
+                                    {{ $rec->description }}
+                                </span>
                             </td>
                             <td>
                                 @if ($rec2->project)
@@ -303,7 +323,7 @@
                 </tbody>
                 <tfoot>
                     <tr>
-                        <th colspan="4" class="text-end">Итого</th>
+                        <th colspan="5" class="text-end">Итого</th>
                         <th class="text-end">{{ number_format($compareTotalAmount, 2, '.', ' ') }}</th>
                     </tr>
                 </tfoot>
@@ -397,5 +417,22 @@
                 });
             });
         });
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const tooltipTriggerList = [].slice.call(
+                document.querySelectorAll('[data-bs-toggle="tooltip"]')
+            );
+            tooltipTriggerList.forEach(el => new bootstrap.Tooltip(el));
+        });
     </script>
+    <style>
+        /* фиксируем ширину/высоту ячейки и прячем переполнение */
+        .desc-cell {
+            max-width: 220px;   /* можно подправить */
+            max-height: 38px;   /* ≈ две строки bootstrap */
+            overflow: hidden;
+            white-space: nowrap;
+            text-overflow: ellipsis;
+        }
+    </style>
 </div>
