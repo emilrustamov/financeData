@@ -6,7 +6,6 @@
             <i class="bi bi-plus-circle fs-4"></i>
         </button>
     </div>
-    <!-- Замените текущий блок касс на следующий -->
     <div class="card  mb-3" x-data="{ expanded: false }">
         <div class="card-header d-flex justify-content-between align-items-center">
             <h5 class="mb-0">Мои кассы</h5>

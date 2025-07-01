@@ -176,10 +176,11 @@
                             </td>
                             <td>
                                 <span class="desc-cell" data-bs-toggle="tooltip" data-bs-placement="top"
-                                    title="{{ $rec->description }}">
-                                    {{ $rec->description }}
+                                    title="{{ empty($rec->description) ? '-' : $rec->description }}">
+                                    {{ empty($rec->description) ? '-' : $rec->description }}
                                 </span>
                             </td>
+
                             <td>
                                 @if ($rec->project)
                                     <a href="#"
@@ -291,10 +292,11 @@
                             </td>
                             <td>
                                 <span class="desc-cell" data-bs-toggle="tooltip" data-bs-placement="top"
-                                    title="{{ $rec->description }}">
-                                    {{ $rec->description }}
+                                    title="{{ empty($rec->description) ? '-' : $rec->description }}">
+                                    {{ empty($rec->description) ? '-' : $rec->description }}
                                 </span>
                             </td>
+
                             <td>
                                 @if ($rec2->project)
                                     <a href="#"
@@ -428,8 +430,10 @@
     <style>
         /* фиксируем ширину/высоту ячейки и прячем переполнение */
         .desc-cell {
-            max-width: 220px;   /* можно подправить */
-            max-height: 38px;   /* ≈ две строки bootstrap */
+            max-width: 220px;
+            /* можно подправить */
+            max-height: 38px;
+            /* ≈ две строки bootstrap */
             overflow: hidden;
             white-space: nowrap;
             text-overflow: ellipsis;
