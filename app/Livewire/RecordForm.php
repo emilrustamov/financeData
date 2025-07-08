@@ -687,7 +687,7 @@ class RecordForm extends Component
         }
 
 
-        $this->records = $this->records->orderBy('created_at', 'desc')->paginate(20);
+        $this->records = $this->records->orderBy('Date', 'desc')->paginate(20);
     }
 
     public function render()
@@ -751,7 +751,7 @@ class RecordForm extends Component
         }
 
         // Пагинация и сортировка
-        $records = $records->orderBy('created_at', 'desc')->paginate(20);
+        $records = $records->orderBy('Date', 'desc')->paginate(20);
 
         // Рассчитываем ежедневные итоги
         $dailySummary = $this->getDailySummary();

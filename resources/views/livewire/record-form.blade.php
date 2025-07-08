@@ -328,7 +328,7 @@
                             @endif
                         </td>
                         <td>{{ $record->original_currency }}</td>
-                        <td>{{ $record->Date }}</td>
+                        <td>{{ \Carbon\Carbon::parse($record->Date)->format('d.m.Y') }}</td>
                         <td>{{ number_format($record->ExchangeRate, 2, '.', ' ') }}</td>
                         <td>
                             @if ($record->is_debt)
